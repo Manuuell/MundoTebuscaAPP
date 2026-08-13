@@ -18,3 +18,12 @@ Son punto de partida visual, **no diseño final aprobado**.
   `CrisisStatsPanel`), fila completa de 8 cifras deslizables (según
   `DashboardStats.tsx`, mismos tonos de color: rose/amber/emerald/sky/zinc/
   violet), y carrusel de noticias verificadas con varias tarjetas.
+- [se-busca.html](se-busca.html) — pantalla "Se busca" con las dos vistas que
+  describe [05-fuente-web-existente.md](../05-fuente-web-existente.md) §4:
+  **Lista** (búsqueda, chips de filtro por estado con los mismos colores que
+  `EstadoPersona` en el código Flutter, tarjetas con badge "👁️ Sin
+  identificar" y "Menor") y **"¿La reconoces?"** (baraja tipo Tinder,
+  equivalente a `RecognizeDeck.tsx`): tarjetas apiladas, botones ✕/✓,
+  sellos "OTRA"/"LA RECONOZCO" al decidir, atajos de teclado (flechas
+  izquierda/derecha), contador y estado vacío con reinicio. Tiene JS mínimo
+  para poder probar el swipe/deck interactivamente, no solo verlo estático.

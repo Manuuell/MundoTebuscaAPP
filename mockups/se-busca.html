@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup — Se busca / ¿La reconoces? (app móvil)</title>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Signika:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 2rem 1rem;
+    background: #eef0f3;
+    display: flex;
+    justify-content: center;
+    font-family: 'Figtree', sans-serif;
+  }
+  .phone {
+    width: 320px;
+    border: 8px solid #1d1b40;
+    border-radius: 36px;
+    overflow: hidden;
+    background: #f8fafc;
+    display: flex;
+    flex-direction: column;
+  }
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px 6px;
+  }
+  .topbar .title {
+    font-family: 'Signika', sans-serif; font-weight: 600; font-size: 16px; color: #1d1b40;
+  }
+  .topbar i { font-size: 18px; color: #71717a; }
+  .search-wrap {
+    margin: 6px 16px 10px; display: flex; align-items: center; gap: 8px;
+    background: #fff; border: 1px solid #e4e4e7; border-radius: 12px; padding: 9px 12px;
+  }
+  .search-wrap i { font-size: 15px; color: #a1a1aa; }
+  .search-wrap span { font-size: 12px; color: #a1a1aa; }
+  .segmented {
+    margin: 0 16px 10px; display: flex; background: #eef0f3; border-radius: 999px; padding: 3px;
+  }
+  .seg-btn {
+    flex: 1; border: none; background: transparent; padding: 8px 4px; border-radius: 999px;
+    font-family: 'Figtree', sans-serif; font-size: 12px; font-weight: 600; color: #71717a; cursor: pointer;
+  }
+  .seg-btn.active { background: #fff; color: #9c552e; box-shadow: 0 1px 2px rgba(16,24,40,.08); }
+
+  /* ── Lista ─────────────────────────────────────────────── */
+  .chips { display: flex; gap: 6px; overflow-x: auto; padding: 0 16px 10px; }
+  .chip {
+    flex-shrink: 0; font-size: 11px; font-weight: 600; padding: 6px 12px; border-radius: 999px;
+    border: 1px solid #e4e4e7; color: #52525b; background: #fff; white-space: nowrap;
+  }
+  .chip.active { background: #1d1b40; border-color: #1d1b40; color: #fff; }
+  .lista { padding: 0 16px 14px; display: flex; flex-direction: column; gap: 8px; }
+  .persona-card {
+    display: flex; gap: 10px; padding: 10px; border-radius: 16px; border: 1px solid #e4e4e7;
+    background: #fff; align-items: center;
+  }
+  .avatar {
+    width: 52px; height: 52px; border-radius: 14px; flex-shrink: 0; display: flex;
+    align-items: center; justify-content: center; font-size: 20px;
+  }
+  .p-body { min-width: 0; flex: 1; }
+  .p-nombre { font-size: 13px; font-weight: 700; color: #18181b; line-height: 1.25; }
+  .p-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+  .badge { font-size: 9.5px; font-weight: 700; padding: 2px 7px; border-radius: 999px; }
+  .p-loc { display: flex; align-items: center; gap: 4px; margin-top: 4px; font-size: 11px; color: #71717a; }
+  .p-loc i { font-size: 12px; }
+
+  /* ── ¿La reconoces? ────────────────────────────────────── */
+  .deck-header { display: flex; align-items: center; justify-content: space-between; padding: 0 18px 10px; }
+  .deck-counter { font-size: 11px; font-weight: 700; color: #1d1b40; }
+  .deck-hint { font-size: 10px; color: #a1a1aa; }
+  .deck-area { position: relative; height: 340px; margin: 0 18px 14px; }
+  .deck-card {
+    position: absolute; inset: 0; background: #fff; border-radius: 22px; border: 1px solid #e4e4e7;
+    box-shadow: 0 10px 24px -8px rgba(16,24,40,.18);
+    display: flex; flex-direction: column; overflow: hidden;
+    transition: transform .32s cubic-bezier(.32,.72,0,1), opacity .32s cubic-bezier(.32,.72,0,1);
+  }
+  .deck-photo {
+    height: 190px; background: linear-gradient(160deg,#e4e4e7,#d4d4d8);
+    display: flex; align-items: center; justify-content: center; position: relative;
+  }
+  .deck-photo i { font-size: 46px; color: #a1a1aa; }
+  .eye-badge {
+    position: absolute; top: 10px; left: 10px; background: rgba(29,27,64,.85); color: #fff;
+    font-size: 10px; font-weight: 700; padding: 4px 9px; border-radius: 999px;
+  }
+  .deck-info { padding: 12px 14px; flex: 1; }
+  .deck-info .titulo { font-family: 'Signika', sans-serif; font-size: 15px; font-weight: 600; color: #1d1b40; }
+  .deck-info .desc { font-size: 11.5px; color: #52525b; margin-top: 5px; line-height: 1.45; }
+  .deck-info .loc { margin-top: 8px; font-size: 11px; color: #71717a; display: flex; align-items: center; gap: 4px; }
+  .stamp {
+    position: absolute; top: 26px; font-family: 'Signika', sans-serif; font-weight: 700; font-size: 20px;
+    padding: 6px 14px; border-radius: 10px; border: 3px solid; opacity: 0; pointer-events: none;
+    transition: opacity .15s;
+  }
+  .stamp.reconozco { left: 16px; color: #047857; border-color: #047857; transform: rotate(-14deg); }
+  .stamp.otra { right: 16px; color: #71717a; border-color: #a1a1aa; transform: rotate(14deg); }
+  .deck-actions { display: flex; justify-content: center; gap: 22px; padding-bottom: 4px; }
+  .deck-btn {
+    width: 58px; height: 58px; border-radius: 999px; border: none; display: flex; align-items: center;
+    justify-content: center; box-shadow: 0 6px 14px -4px rgba(16,24,40,.25); cursor: pointer;
+  }
+  .deck-btn.otra { background: #fff; border: 1.5px solid #e4e4e7; color: #71717a; }
+  .deck-btn.reconozco { background: #047857; color: #fff; }
+  .deck-btn i { font-size: 24px; }
+  .deck-empty { text-align: center; padding: 40px 20px; color: #71717a; font-size: 12px; }
+  .deck-empty i { font-size: 30px; color: #a1a1aa; display: block; margin-bottom: 8px; }
+  .reset-btn {
+    margin-top: 12px; display: inline-block; font-size: 11px; font-weight: 700; color: #fff;
+    background: #d3824a; padding: 8px 16px; border-radius: 999px; border: none; cursor: pointer;
+  }
+
+  /* ── nav inferior (igual que inicio.html) ─────────────────*/
+  .navbar {
+    display: flex; justify-content: space-around; align-items: center; border-top: 0.5px solid #e4e4e7;
+    background: rgba(255,255,255,0.95); padding: 8px 4px 12px; margin-top: auto;
+  }
+  .nav-item { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 10px; border-radius: 16px; }
+  .nav-item i { font-size: 20px; color: #71717a; }
+  .nav-item span { font-size: 10px; color: #71717a; }
+  .nav-item.active { background: #fdf3ec; }
+  .nav-item.active i, .nav-item.active span { color: #9c552e; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="phone">
+
+  <div class="topbar">
+    <i class="ti ti-arrow-left" aria-hidden="true"></i>
+    <div class="title">Se busca</div>
+    <i class="ti ti-dots-vertical" aria-hidden="true"></i>
+  </div>
+
+  <div class="search-wrap">
+    <i class="ti ti-search" aria-hidden="true"></i>
+    <span>Buscar nombre, documento o ubicación</span>
+  </div>
+
+  <div class="segmented">
+    <button class="seg-btn active" id="tabLista" onclick="mostrar('lista')">Lista</button>
+    <button class="seg-btn" id="tabReconoces" onclick="mostrar('reconoces')">¿La reconoces?</button>
+  </div>
+
+  <!-- ══ VISTA LISTA ══ -->
+  <div id="vistaLista">
+    <div class="chips">
+      <span class="chip active">Todos</span>
+      <span class="chip" style="color:#be123c;">Por localizar</span>
+      <span class="chip" style="color:#0369a1;">En hospital</span>
+      <span class="chip" style="color:#047857;">A salvo</span>
+      <span class="chip" style="color:#1d1b40;">Fallecido</span>
+    </div>
+
+    <div class="lista">
+      <div class="persona-card">
+        <div class="avatar" style="background:#fff1f2;color:#be123c;"><i class="ti ti-user" aria-hidden="true"></i></div>
+        <div class="p-body">
+          <div class="p-nombre">María Fernanda Torres</div>
+          <div class="p-badges">
+            <span class="badge" style="background:#fff1f2;color:#be123c;">Por localizar</span>
+          </div>
+          <div class="p-loc"><i class="ti ti-map-pin" aria-hidden="true"></i> La Guaira, Vargas</div>
+        </div>
+      </div>
+
+      <div class="persona-card">
+        <div class="avatar" style="background:#f4f4f8;color:#71717a;"><i class="ti ti-photo" aria-hidden="true"></i></div>
+        <div class="p-body">
+          <div class="p-nombre">Sin identificar</div>
+          <div class="p-badges">
+            <span class="badge" style="background:#fff1f2;color:#be123c;">Por localizar</span>
+            <span class="badge" style="background:#1d1b40;color:#fff;">👁️ Sin identificar</span>
+          </div>
+          <div class="p-loc"><i class="ti ti-map-pin" aria-hidden="true"></i> Catia La Mar</div>
+        </div>
+      </div>
+
+      <div class="persona-card">
+        <div class="avatar" style="background:#f0f9ff;color:#0369a1;"><i class="ti ti-user" aria-hidden="true"></i></div>
+        <div class="p-body">
+          <div class="p-nombre">Carlos Alberto Pérez</div>
+          <div class="p-badges">
+            <span class="badge" style="background:#f0f9ff;color:#0369a1;">En hospital</span>
+          </div>
+          <div class="p-loc"><i class="ti ti-map-pin" aria-hidden="true"></i> Hospital Universitario, Caracas</div>
+        </div>
+      </div>
+
+      <div class="persona-card">
+        <div class="avatar" style="background:#ecfdf5;color:#047857;"><i class="ti ti-user" aria-hidden="true"></i></div>
+        <div class="p-body">
+          <div class="p-nombre">Sofía Ramírez</div>
+          <div class="p-badges">
+            <span class="badge" style="background:#ecfdf5;color:#047857;">A salvo</span>
+            <span class="badge" style="background:#fdf3ec;color:#9c552e;">Menor</span>
+          </div>
+          <div class="p-loc"><i class="ti ti-map-pin" aria-hidden="true"></i> Maiquetía</div>
+        </div>
+      </div>
+
+      <div class="persona-card">
+        <div class="avatar" style="background:#f4f4f8;color:#1d1b40;"><i class="ti ti-user" aria-hidden="true"></i></div>
+        <div class="p-body">
+          <div class="p-nombre">José Gregorio Blanco</div>
+          <div class="p-badges">
+            <span class="badge" style="background:#f4f4f8;color:#1d1b40;">Fallecido</span>
+          </div>
+          <div class="p-loc"><i class="ti ti-map-pin" aria-hidden="true"></i> La Guaira</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ VISTA ¿LA RECONOCES? ══ -->
+  <div id="vistaReconoces" style="display:none;">
+    <div class="deck-header">
+      <span class="deck-counter" id="deckCounter">1 de 3</span>
+      <span class="deck-hint">Desliza o usa los botones</span>
+    </div>
+    <div class="deck-area" id="deckArea"></div>
+    <div class="deck-actions" id="deckActions">
+      <button class="deck-btn otra" onclick="decidir('otra')" aria-label="No la reconozco">
+        <i class="ti ti-x" aria-hidden="true"></i>
+      </button>
+      <button class="deck-btn reconozco" onclick="decidir('reconozco')" aria-label="La reconozco">
+        <i class="ti ti-check" aria-hidden="true"></i>
+      </button>
+    </div>
+  </div>
+
+  <div class="navbar">
+    <div class="nav-item"><i class="ti ti-home" aria-hidden="true"></i><span>Inicio</span></div>
+    <div class="nav-item active"><i class="ti ti-search" aria-hidden="true"></i><span>Se busca</span></div>
+    <div class="nav-item"><i class="ti ti-users" aria-hidden="true"></i><span>Comunidad</span></div>
+    <div class="nav-item"><i class="ti ti-map" aria-hidden="true"></i><span>Mapa</span></div>
+    <div class="nav-item"><i class="ti ti-alert-triangle" aria-hidden="true"></i><span>SOS</span></div>
+  </div>
+
+</div>
+
+<script>
+  const personas = [
+    {
+      desc: 'Hombre, entre 30 y 40 años. Camisa azul, cicatriz pequeña sobre la ceja izquierda. Encontrado consciente, sin poder dar su nombre.',
+      loc: 'La Guaira — cerca de Caraballeda',
+    },
+    {
+      desc: 'Mujer, aproximadamente 60 años. Cabello canoso, vestido con estampado floreado. Se encuentra en un punto de ayuda temporal.',
+      loc: 'Catia La Mar',
+    },
+    {
+      desc: 'Niño, aproximadamente 8 años. Camiseta de fútbol color rojo. Fue rescatado por una brigada y está siendo atendido.',
+      loc: 'Caraballeda',
+    },
+  ];
+
+  let idx = 0;
+
+  function mostrar(vista) {
+    const esLista = vista === 'lista';
+    document.getElementById('vistaLista').style.display = esLista ? 'block' : 'none';
+    document.getElementById('vistaReconoces').style.display = esLista ? 'none' : 'block';
+    document.getElementById('tabLista').classList.toggle('active', esLista);
+    document.getElementById('tabReconoces').classList.toggle('active', !esLista);
+    if (!esLista) renderDeck();
+  }
+
+  function renderDeck() {
+    const area = document.getElementById('deckArea');
+    const actions = document.getElementById('deckActions');
+    const counter = document.getElementById('deckCounter');
+
+    if (idx >= personas.length) {
+      counter.textContent = `${personas.length} de ${personas.length}`;
+      actions.style.display = 'none';
+      area.innerHTML = `
+        <div class="deck-empty">
+          <i class="ti ti-inbox" aria-hidden="true"></i>
+          No hay más personas por revisar en este filtro.
+          <br>
+          <button class="reset-btn" onclick="idx = 0; renderDeck();">Volver a empezar</button>
+        </div>`;
+      return;
+    }
+
+    actions.style.display = 'flex';
+    counter.textContent = `${idx + 1} de ${personas.length}`;
+
+    // Hasta 3 tarjetas visibles apiladas: la de encima interactiva, las
+    // demás detrás con escala/offset decrecientes (mismo look que RecognizeDeck.tsx).
+    let html = '';
+    for (let i = Math.min(2, personas.length - 1 - idx); i >= 0; i--) {
+      const p = personas[idx + i];
+      const esTope = i === 0;
+      const scale = 1 - i * 0.04;
+      const y = i * 10;
+      html += `
+        <div class="deck-card" id="${esTope ? 'cardTope' : ''}" style="transform: translateY(${y}px) scale(${scale}); z-index:${10 - i};">
+          <div class="deck-photo">
+            <span class="eye-badge">👁️ Sin identificar</span>
+            <i class="ti ti-photo" aria-hidden="true"></i>
+            ${esTope ? `
+              <div class="stamp reconozco" id="stampReconozco">LA RECONOZCO</div>
+              <div class="stamp otra" id="stampOtra">OTRA</div>
+            ` : ''}
+          </div>
+          <div class="deck-info">
+            <div class="titulo">Sin identificar</div>
+            <div class="desc">${p.desc}</div>
+            <div class="loc"><i class="ti ti-map-pin" aria-hidden="true"></i> ${p.loc}</div>
+          </div>
+        </div>`;
+    }
+    area.innerHTML = html;
+  }
+
+  function decidir(accion) {
+    const card = document.getElementById('cardTope');
+    if (!card) return;
+    const stamp = document.getElementById(accion === 'reconozco' ? 'stampReconozco' : 'stampOtra');
+    if (stamp) stamp.style.opacity = '1';
+    card.style.transform = accion === 'reconozco'
+      ? 'translate(120px,-18px) rotate(14deg)'
+      : 'translate(-120px,-18px) rotate(-14deg)';
+    card.style.opacity = '0';
+    setTimeout(() => { idx++; renderDeck(); }, 260);
+  }
+
+  // Atajos de teclado: flecha izquierda = "otra", derecha = "la reconozco"
+  // (igual que RecognizeDeck.tsx en la web).
+  window.addEventListener('keydown', (e) => {
+    if (document.getElementById('vistaReconoces').style.display === 'none') return;
+    if (e.key === 'ArrowLeft') decidir('otra');
+    if (e.key === 'ArrowRight') decidir('reconozco');
+  });
+</script>
+
+</body>
+</html>
