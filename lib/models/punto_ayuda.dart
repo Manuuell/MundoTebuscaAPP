@@ -5,7 +5,11 @@ enum TipoPunto {
   hospital('hospital', 'Hospital'),
   refugio('refugio', 'Refugio'),
   rescate('rescate', 'Rescate'),
-  zona('zona', 'Zona afectada');
+  zona('zona', 'Zona afectada'),
+  // No es una categoria real de `PuntoAyuda.tipo` (las personas no son
+  // puntos de ayuda) — existe solo como llave del selector de capas, para
+  // prender/apagar la capa de desaparecidos igual que las demas.
+  desaparecidos('desaparecidos', 'Desaparecidos');
 
   const TipoPunto(this.wire, this.etiqueta);
 
@@ -45,6 +49,9 @@ class PuntoAyuda {
     this.disponible,
     this.paisCodigo,
     this.actualizadoEn,
+    this.estadoHospital,
+    this.categorias = const [],
+    this.verificado = false,
   });
 
   final String id;
@@ -67,6 +74,19 @@ class PuntoAyuda {
 
   final DateTime? actualizadoEn;
 
+  /// Solo si `tipo == hospital`: `operativo/saturado/lleno/cerrado` crudo de
+  /// `hospitals.status`. El pin y la ficha lo pintan con su propio color, no
+  /// el de la capa — un hospital lleno debe destacar en rojo aunque la capa
+  /// "hospital" sea celeste.
+  final String? estadoHospital;
+
+  /// Qué recursos: `aid_points.types` (comida/agua/medicina/…) o
+  /// `hospitals.specialties`. Es lo que responde "qué tiene / en qué puede
+  /// ayudar este punto", igual que la ficha en la web.
+  final List<String> categorias;
+
+  final bool verificado;
+
   factory PuntoAyuda.fromMap(Map<String, dynamic> m) => PuntoAyuda(
         id: m['id'].toString(),
         nombre: (m['name'] ?? '') as String,
@@ -79,6 +99,9 @@ class PuntoAyuda {
         telefono: m['contact_phone'] as String?,
         disponible: m['available'] as bool?,
         paisCodigo: m['country'] as String?,
+        verificado: m['verified'] as bool? ?? false,
+        categorias: (m['types'] as List?)?.map((e) => e.toString()).toList() ??
+            const [],
         actualizadoEn: m['updated_at'] == null
             ? null
             : DateTime.tryParse(m['updated_at'].toString()),
@@ -116,6 +139,13 @@ class PuntoAyuda {
       // no si el hospital abre. Dejarlo en null evita mezclar dos preguntas.
       disponible: null,
       paisCodigo: m['country'] as String?,
+      // El pin y la ficha solo pintan esto si `verificado` es cierto (ver
+      // parrafo de arriba) — se guarda igual para que quien lo consuma decida.
+      estadoHospital: verificado ? estado : null,
+      verificado: verificado,
+      categorias:
+          (m['specialties'] as List?)?.map((e) => e.toString()).toList() ??
+              const [],
       actualizadoEn: m['updated_at'] == null
           ? null
           : DateTime.tryParse(m['updated_at'].toString()),

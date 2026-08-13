@@ -57,6 +57,22 @@ class ComunidadRepository {
     return Fresh.now(rows.map(Comentario.fromMap).toList(growable: false));
   }
 
+  /// Comentarios de cualquier entidad (punto de ayuda, hospital…), mismo
+  /// patron que [comentarios] pero sin fijar `entity_type` a `'post'`.
+  Future<Fresh<List<Comentario>>> comentariosDe({
+    required String entityType,
+    required String entityId,
+  }) async {
+    final rows = await _db
+        .from('comments')
+        .select()
+        .eq('entity_type', entityType)
+        .eq('entity_id', entityId)
+        .order('created_at', ascending: true);
+
+    return Fresh.now(rows.map(Comentario.fromMap).toList(growable: false));
+  }
+
   /// Cuantos comentarios tiene una publicacion.
   Future<int> contarComentarios(String publicacionId) async {
     try {

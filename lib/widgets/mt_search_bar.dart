@@ -32,7 +32,10 @@ class MTSearchBar extends StatelessWidget {
 
   /// Número de filtros aplicados; si es > 0 se pinta una insignia en el botón.
   final int filtrosActivos;
-  final VoidCallback? alTocarFiltros;
+
+  /// Recibe el `BuildContext` del propio botón (no el de la pantalla): hace
+  /// falta para anclar el panel flotante justo debajo de donde se tocó.
+  final ValueChanged<BuildContext>? alTocarFiltros;
 
   /// Control extra al final de la fila — normalmente [MTPaginationButton].
   final Widget? trailing;
@@ -108,12 +111,12 @@ class _BotonCircular extends StatelessWidget {
 
   final IconData icono;
   final int? insignia;
-  final VoidCallback? onTap;
+  final ValueChanged<BuildContext>? onTap;
 
   @override
   Widget build(BuildContext context) {
     return Press(
-      onTap: onTap,
+      onTap: onTap == null ? null : () => onTap!(context),
       child: SizedBox(
         width: MTSearchBar.alto,
         height: MTSearchBar.alto,
@@ -121,6 +124,7 @@ class _BotonCircular extends StatelessWidget {
           clipBehavior: Clip.none,
           children: [
             Container(
+              alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: Colors.white,
                 shape: BoxShape.circle,
@@ -159,122 +163,230 @@ class _BotonCircular extends StatelessWidget {
   }
 }
 
-/// Botón de paginado: mismo alto que [MTSearchBar], despliega un menú del
-/// mismo ancho que él mismo con las opciones de tamaño de página. Por defecto
-/// 10, igual que la web (`PAGE_SIZE = 10` en cada listado).
+/// Botón de paginado: mismo alto y ancho fijo que [MTSearchBar]. Despliega un
+/// panel flotante — no una hoja — con el mismo ancho que él mismo. `0` es el
+/// valor centinela "infinito" (el scroll sigue trayendo tandas solo; es el
+/// comportamiento por defecto), el resto son tamaños fijos de tanda.
 class MTPaginationButton extends StatelessWidget {
   const MTPaginationButton({
     super.key,
     required this.porPagina,
     required this.onChanged,
-    this.opciones = const [10, 20, 50],
+    this.opciones = const [0, 10, 20, 50],
   });
 
   final int porPagina;
   final ValueChanged<int> onChanged;
   final List<int> opciones;
 
+  static const _ancho = 52.0;
+
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: MTSearchBar.alto,
-      child: PopupMenuButton<int>(
-        initialValue: porPagina,
-        onSelected: onChanged,
-        offset: const Offset(0, MTSearchBar.alto + 6),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        itemBuilder: (context) => [
-          for (final n in opciones)
-            PopupMenuItem(
-              value: n,
-              child: Text('$n por página',
-                  style: TextStyle(
-                      fontWeight:
-                          n == porPagina ? FontWeight.w800 : FontWeight.w500)),
-            ),
-        ],
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: AppColors.border),
-            boxShadow: MTElevation.card,
-          ),
-          alignment: Alignment.center,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('$porPagina',
-                  style: const TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.navy700)),
-              const Icon(Icons.expand_more_rounded,
-                  size: 16, color: AppColors.muted),
-            ],
-          ),
+    return Press(
+      onTap: () => _abrir(context),
+      child: Container(
+        width: _ancho,
+        height: MTSearchBar.alto,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: AppColors.border),
+          boxShadow: MTElevation.card,
         ),
+        child: _Etiqueta(valor: porPagina, color: AppColors.navy700),
+      ),
+    );
+  }
+
+  Future<void> _abrir(BuildContext anchorContext) {
+    return mostrarFlotante(
+      anchorContext,
+      ancho: _ancho,
+      builder: (ctx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final n in opciones) ...[
+            _FilaOpcion(
+              activo: n == porPagina,
+              child: _Etiqueta(
+                valor: n,
+                color: n == porPagina ? AppColors.brand700 : AppColors.navy700,
+              ),
+              onTap: () {
+                onChanged(n);
+                Navigator.of(ctx, rootNavigator: true).pop();
+              },
+            ),
+            if (n != opciones.last)
+              const Divider(height: 1, color: AppColors.border),
+          ],
+        ],
       ),
     );
   }
 }
 
-/// Hoja de filtros compartida: título + contenido + acciones "Limpiar" /
-/// "Aplicar". Cada pantalla arma su propio contenido (chips, switches…) y
-/// pasa cuántos filtros quedan activos, para que el llamador pinte la
-/// insignia del botón de embudo sin duplicar esa cuenta.
-Future<void> mostrarHojaFiltros(
+class _Etiqueta extends StatelessWidget {
+  const _Etiqueta({required this.valor, required this.color});
+
+  final int valor;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    if (valor == 0) {
+      return Icon(Icons.all_inclusive_rounded, size: 18, color: color);
+    }
+    return Text('$valor',
+        style: TextStyle(
+            fontSize: 14, fontWeight: FontWeight.w800, color: color));
+  }
+}
+
+class _FilaOpcion extends StatelessWidget {
+  const _FilaOpcion(
+      {required this.child, required this.activo, required this.onTap});
+
+  final Widget child;
+  final bool activo;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        height: 44,
+        alignment: Alignment.center,
+        color: activo ? AppColors.brand500.withValues(alpha: 0.08) : null,
+        child: child,
+      ),
+    );
+  }
+}
+
+/// Panel flotante genérico: aparece anclado bajo el widget que lo abrió (no
+/// desde abajo de la pantalla), con sombra y esquinas redondeadas, y se
+/// cierra tocando fuera. Sustituye a la hoja modal para paneles cortos como
+/// filtros, capas del mapa o el selector de paginado — "que se sienta como un
+/// desplegable nativo, no como una hoja que sube".
+Future<T?> mostrarFlotante<T>(
+  BuildContext anchorContext, {
+  required WidgetBuilder builder,
+  double? ancho,
+  double maxAlto = 420,
+}) {
+  final box = anchorContext.findRenderObject() as RenderBox;
+  final overlayBox =
+      Navigator.of(anchorContext).overlay!.context.findRenderObject()
+          as RenderBox;
+  final abajoIzq =
+      box.localToGlobal(Offset(0, box.size.height + 8), ancestor: overlayBox);
+  final abajoDer = box.localToGlobal(
+      Offset(box.size.width, box.size.height + 8),
+      ancestor: overlayBox);
+
+  final w = ancho ?? 300.0;
+  var left = abajoDer.dx - w;
+  if (left < 12) left = 12;
+  if (left + w > overlayBox.size.width - 12) {
+    left = overlayBox.size.width - 12 - w;
+  }
+  var top = abajoIzq.dy;
+  final alturaDisponible = overlayBox.size.height - top - 24;
+  final alturaMax =
+      alturaDisponible < maxAlto ? alturaDisponible : maxAlto;
+
+  return showGeneralDialog<T>(
+    context: anchorContext,
+    barrierColor: Colors.transparent,
+    barrierDismissible: true,
+    barrierLabel: 'Cerrar',
+    transitionDuration: const Duration(milliseconds: 160),
+    pageBuilder: (ctx, _, _) => const SizedBox.shrink(),
+    transitionBuilder: (ctx, anim, _, _) {
+      final curva = CurvedAnimation(parent: anim, curve: Curves.easeOutCubic);
+      return Stack(
+        children: [
+          Positioned(
+            left: left,
+            top: top,
+            width: w,
+            child: FadeTransition(
+              opacity: curva,
+              child: ScaleTransition(
+                scale: Tween<double>(begin: 0.94, end: 1).animate(curva),
+                alignment: Alignment.topRight,
+                child: Material(
+                  color: Colors.transparent,
+                  child: Container(
+                    constraints: BoxConstraints(
+                        maxHeight: alturaMax > 120 ? alturaMax : 120),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: MTElevation.cardHover,
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: builder(ctx),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+/// Contenido de un panel de filtros: título + contenido + acciones "Limpiar"
+/// / "Aplicar". Pensado para pasarse como `builder` de [mostrarFlotante].
+Widget panelFiltros(
   BuildContext context, {
   required String titulo,
   required Widget contenido,
   VoidCallback? alLimpiar,
 }) {
-  return showModalBottomSheet<void>(
-    context: context,
-    showDragHandle: true,
-    isScrollControlled: true,
-    builder: (sheetContext) => SafeArea(
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          20,
-          4,
-          20,
-          20 + MediaQuery.viewInsetsOf(sheetContext).bottom,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+  return Padding(
+    padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(titulo,
-                      style: Theme.of(sheetContext).textTheme.titleLarge),
-                ),
-                if (alLimpiar != null)
-                  TextButton(
-                    onPressed: () {
-                      alLimpiar();
-                      Navigator.pop(sheetContext);
-                    },
-                    child: const Text('Limpiar'),
-                  ),
-              ],
+            Expanded(
+              child: Text(titulo, style: Theme.of(context).textTheme.titleMedium),
             ),
-            const SizedBox(height: 12),
-            contenido,
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: () => Navigator.pop(sheetContext),
-                child: const Text('Aplicar'),
+            if (alLimpiar != null)
+              TextButton(
+                style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size(0, 32),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                onPressed: () {
+                  alLimpiar();
+                  Navigator.of(context, rootNavigator: true).pop();
+                },
+                child: const Text('Limpiar'),
               ),
-            ),
           ],
         ),
-      ),
+        const SizedBox(height: 10),
+        Flexible(child: SingleChildScrollView(child: contenido)),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          height: 42,
+          child: FilledButton(
+            onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
+            child: const Text('Aplicar'),
+          ),
+        ),
+      ],
     ),
   );
 }

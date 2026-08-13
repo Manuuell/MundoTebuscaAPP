@@ -60,6 +60,34 @@ class PersonasRepository {
     );
   }
 
+  /// Personas con coordenada exacta, para el mapa. Solo `por_localizar`: el
+  /// mapa pinta desaparecidos en rojo, no el listado completo — ver nota en
+  /// `MapaScreen`.
+  ///
+  /// Si `lat`/`lng` no existen todavia en el esquema (base sin migrar), no se
+  /// rompe el mapa: se degrada a "sin personas" en vez de tumbar la pantalla.
+  Future<Fresh<List<Persona>>> conUbicacion({
+    required String paisCodigo,
+    int limite = 200,
+  }) async {
+    try {
+      final rows = await _db
+          .from(_tabla)
+          .select()
+          .eq('country', paisCodigo)
+          .eq('status', EstadoPersona.porLocalizar.wire)
+          .not('lat', 'is', null)
+          .not('lng', 'is', null)
+          .order('updated_at', ascending: false)
+          .limit(limite);
+
+      return Fresh.now(
+          rows.map((r) => Persona.fromMap(r)).toList(growable: false));
+    } catch (_) {
+      return Fresh.now(const <Persona>[]);
+    }
+  }
+
   Future<Fresh<Persona?>> porId(String id) async {
     final row =
         await _db.from(_tabla).select().eq('id', id).maybeSingle();

@@ -40,6 +40,11 @@ class FiltroPersonas {
 final filtroPersonasProvider =
     StateProvider<FiltroPersonas>((ref) => const FiltroPersonas());
 
+/// Tamaño de tanda elegido en [MTPaginationButton]. `0` = infinito (por
+/// defecto): el scroll sigue trayendo de a 30 solo, sin que nadie decida
+/// nada. Elegir 10/20/50 cambia el tamaño de cada tanda que se trae.
+final tandaProvider = StateProvider<int>((ref) => 0);
+
 /// Lo cargado hasta ahora en la lista.
 class PaginaPersonas {
   const PaginaPersonas({
@@ -74,14 +79,21 @@ class PaginaPersonas {
 /// familiar es desplazarse hasta encontrarlo. Se piden tandas de 30 y se
 /// acumulan.
 class PersonasNotifier extends Notifier<AsyncValue<PaginaPersonas>> {
-  static const _tanda = 30;
+  static const _tandaPorDefecto = 30;
+
+  int get _tanda {
+    final elegida = ref.read(tandaProvider);
+    return elegida == 0 ? _tandaPorDefecto : elegida;
+  }
 
   @override
   AsyncValue<PaginaPersonas> build() {
-    // Cambiar de pais o de filtro reinicia la lista: mezclar resultados de dos
-    // busquedas distintas seria peor que recargar.
+    // Cambiar de pais, de filtro o de tanda reinicia la lista: mezclar
+    // resultados de dos busquedas (o tamanos) distintos seria peor que
+    // recargar.
     ref.watch(paisProvider);
     ref.watch(filtroPersonasProvider);
+    ref.watch(tandaProvider);
     Future.microtask(recargar);
     return const AsyncValue.loading();
   }
@@ -219,7 +231,6 @@ class _SeBuscaScreenState extends ConsumerState<SeBuscaScreen> {
     return Scaffold(
       backgroundColor: AppColors.bgBase,
       appBar: AppBar(
-        centerTitle: true,
         title: const Text('Se busca',
             style: TextStyle(fontWeight: FontWeight.w800)),
       ),
@@ -249,11 +260,13 @@ class _SeBuscaScreenState extends ConsumerState<SeBuscaScreen> {
                 final activos = (filtro.estado != null ? 1 : 0) +
                     (filtro.soloMenores ? 1 : 0);
 
+                final tanda = ref.watch(tandaProvider);
+
                 return MTSearchBar(
                   controller: _buscador,
                   hintText: 'Nombre, documento o ubicación',
                   filtrosActivos: activos,
-                  alTocarFiltros: () => _abrirFiltros(context, ref),
+                  alTocarFiltros: (anchorCtx) => _abrirFiltros(anchorCtx, ref),
                   onClear: () {
                     _buscador.clear();
                     ref
@@ -265,7 +278,11 @@ class _SeBuscaScreenState extends ConsumerState<SeBuscaScreen> {
                   onSubmitted: (v) => ref
                       .read(filtroPersonasProvider.notifier)
                       .update((f) => f.copyWith(busqueda: v)),
-
+                  trailing: MTPaginationButton(
+                    porPagina: tanda,
+                    onChanged: (n) =>
+                        ref.read(tandaProvider.notifier).state = n,
+                  ),
                 );
               },
             ),
@@ -281,40 +298,51 @@ class _SeBuscaScreenState extends ConsumerState<SeBuscaScreen> {
     );
   }
 
-  void _abrirFiltros(BuildContext context, WidgetRef ref) {
-    final filtro = ref.read(filtroPersonasProvider);
-    mostrarHojaFiltros(
-      context,
-      titulo: 'Filtrar personas',
-      alLimpiar: () =>
-          ref.read(filtroPersonasProvider.notifier).state = const FiltroPersonas(),
-      contenido: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          _Chip(
-            texto: 'Todos',
-            color: AppColors.navy700,
-            activo: filtro.estado == null && !filtro.soloMenores,
-            alTocar: () => ref.read(filtroPersonasProvider.notifier).state =
-                const FiltroPersonas(),
-          ),
-          for (final e in EstadoPersona.values)
-            _Chip(
-              texto: e.etiqueta,
-              color: colorEstado(e),
-              activo: filtro.estado == e,
-              alTocar: () => ref.read(filtroPersonasProvider.notifier).state =
-                  FiltroPersonas(estado: filtro.estado == e ? null : e),
+  void _abrirFiltros(BuildContext anchorContext, WidgetRef ref) {
+    mostrarFlotante(
+      anchorContext,
+      ancho: 300,
+      builder: (ctx) => Consumer(
+        builder: (ctx, sheetRef, _) {
+          final filtro = sheetRef.watch(filtroPersonasProvider);
+          return panelFiltros(
+            ctx,
+            titulo: 'Filtrar personas',
+            alLimpiar: () => sheetRef.read(filtroPersonasProvider.notifier)
+                .state = const FiltroPersonas(),
+            contenido: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _Chip(
+                  texto: 'Todos',
+                  color: AppColors.navy700,
+                  activo: filtro.estado == null && !filtro.soloMenores,
+                  alTocar: () => sheetRef.read(filtroPersonasProvider.notifier)
+                      .state = const FiltroPersonas(),
+                ),
+                for (final e in EstadoPersona.values)
+                  _Chip(
+                    texto: e.etiqueta,
+                    color: colorEstado(e),
+                    activo: filtro.estado == e,
+                    alTocar: () =>
+                        sheetRef.read(filtroPersonasProvider.notifier).state =
+                            FiltroPersonas(
+                                estado: filtro.estado == e ? null : e),
+                  ),
+                _Chip(
+                  texto: 'Menores',
+                  color: AppColors.warning500,
+                  activo: filtro.soloMenores,
+                  alTocar: () =>
+                      sheetRef.read(filtroPersonasProvider.notifier).state =
+                          FiltroPersonas(soloMenores: !filtro.soloMenores),
+                ),
+              ],
             ),
-          _Chip(
-            texto: 'Menores',
-            color: AppColors.warning500,
-            activo: filtro.soloMenores,
-            alTocar: () => ref.read(filtroPersonasProvider.notifier).state =
-                FiltroPersonas(soloMenores: !filtro.soloMenores),
-          ),
-        ],
+          );
+        },
       ),
     );
   }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/theme/app_colors.dart';
+import '../core/theme/elevation.dart';
 
 /// Una de las cifras deslizables del Inicio.
 ///
@@ -28,33 +29,41 @@ class CifraChip extends StatelessWidget {
     final seguro = valor < 0 ? 0 : valor;
 
     return InkWell(
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(14),
       onTap: onTap,
       child: Container(
-        width: 116,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        width: 100,
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withValues(alpha: 0.25)),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: color.withValues(alpha: 0.18)),
+          boxShadow: MTElevation.card,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            ),
+            const SizedBox(height: 8),
             Text(
               '$seguro',
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    color: color,
-                    fontWeight: FontWeight.w700,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: AppColors.navy700,
+                    fontWeight: FontWeight.w800,
+                    height: 1,
                   ),
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 3),
             Text(
               etiqueta,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 12, color: AppColors.muted),
+              style: const TextStyle(fontSize: 11.5, color: AppColors.muted),
             ),
           ],
         ),
