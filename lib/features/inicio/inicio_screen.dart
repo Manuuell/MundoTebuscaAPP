@@ -10,6 +10,7 @@ import '../../models/persona.dart';
 import '../../widgets/cifra_chip.dart';
 import '../../widgets/mt_header.dart';
 import '../../core/theme/elevation.dart';
+import '../../widgets/donar_sheet.dart';
 import '../../widgets/mt_card.dart';
 import 'cifras_providers.dart';
 import '../../repositories/noticias_repository.dart';
@@ -123,17 +124,54 @@ class _Hero extends ConsumerWidget {
                   child: const Text('¿Como puedo ayudar?'),
                 ),
                 const SizedBox(height: 10),
-                OutlinedButton(
-                  onPressed: () => StatefulNavigationShell.of(context)
-                      .goBranch(3, initialLocation: true),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text('Ver mapa EN VIVO'),
-                      SizedBox(width: 8),
-                      Icon(Icons.circle, size: 9, color: AppColors.danger500),
-                    ],
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => StatefulNavigationShell.of(context)
+                            .goBranch(3, initialLocation: true),
+                        style: OutlinedButton.styleFrom(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 8)),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: Text('Ver mapa EN VIVO',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis),
+                            ),
+                            SizedBox(width: 7),
+                            Icon(Icons.circle,
+                                size: 9, color: AppColors.danger500),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => mostrarDonar(context),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          foregroundColor: AppColors.brand700,
+                          side: const BorderSide(color: AppColors.brand500),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.favorite_rounded, size: 16),
+                            SizedBox(width: 7),
+                            Flexible(
+                              child: Text('Donar',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 20),
                 const _PanelCifras(),
