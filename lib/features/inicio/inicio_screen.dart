@@ -455,7 +455,7 @@ class _FilaDeCifras extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return panel.when(
-      loading: () => const SizedBox(height: 78, child: _CargandoCifras(filas: 1)),
+      loading: () => const SizedBox(height: 96, child: _CargandoCifras(filas: 1)),
       error: (_, _) => const _SinDatos(),
       data: (fresh) {
         final CifrasPanel c = fresh.data as CifrasPanel;
@@ -477,7 +477,7 @@ class _FilaDeCifras extends StatelessWidget {
         ];
 
         return SizedBox(
-          height: 78,
+          height: 96,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: items.length,
