@@ -13,6 +13,7 @@ import '../../features/se_busca/se_busca_screen.dart';
 import '../../features/shell/home_shell.dart';
 import '../../features/cuenta/configuracion_screen.dart';
 import '../../features/cuenta/perfil_screen.dart';
+import '../../features/sos/necesitan_ayuda_screen.dart';
 import '../../features/sos/sos_screen.dart';
 import '../../models/persona.dart';
 
@@ -37,13 +38,16 @@ abstract final class Rutas {
   static const persona = '/persona';
   static const asistente = '/asistente';
   static const perfil = '/perfil';
+
+  // Red de auxilio: sin equivalente en la web, solo existen en la app.
+  static const necesitanAyuda = '/necesitan-ayuda';
 }
 
-final _rootKey = GlobalKey<NavigatorState>();
+final rootNavigatorKey = GlobalKey<NavigatorState>();
 
 GoRouter buildRouter() {
   return GoRouter(
-    navigatorKey: _rootKey,
+    navigatorKey: rootNavigatorKey,
     initialLocation: Rutas.inicio,
     routes: [
       // Los 5 tabs primarios, cada uno con su propia pila de navegacion para
@@ -94,12 +98,12 @@ GoRouter buildRouter() {
       // Hoja "Mas".
       GoRoute(
         path: Rutas.ayuda,
-        parentNavigatorKey: _rootKey,
+        parentNavigatorKey: rootNavigatorKey,
         builder: (_, _) => const AyudaScreen(),
       ),
       GoRoute(
         path: Rutas.mascotas,
-        parentNavigatorKey: _rootKey,
+        parentNavigatorKey: rootNavigatorKey,
         builder: (_, _) => const MascotasScreen(),
       ),
       // SOS deja de ser pestana pero conserva su ruta: la comparte la web y
@@ -107,30 +111,35 @@ GoRouter buildRouter() {
       // arriba del todo en Configuracion.
       GoRoute(
         path: Rutas.sos,
-        parentNavigatorKey: _rootKey,
+        parentNavigatorKey: rootNavigatorKey,
         builder: (_, _) => const SosScreen(),
       ),
       GoRoute(
         path: Rutas.asistente,
-        parentNavigatorKey: _rootKey,
+        parentNavigatorKey: rootNavigatorKey,
         builder: (_, _) => const AsistenteScreen(),
       ),
       GoRoute(
         path: Rutas.perfil,
-        parentNavigatorKey: _rootKey,
+        parentNavigatorKey: rootNavigatorKey,
         builder: (_, _) => const PerfilScreen(),
+      ),
+      GoRoute(
+        path: Rutas.necesitanAyuda,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (_, _) => const NecesitanAyudaScreen(),
       ),
 
       // Ficha de una persona y su enlace de gestion con token.
       GoRoute(
         path: '${Rutas.persona}/:id',
-        parentNavigatorKey: _rootKey,
+        parentNavigatorKey: rootNavigatorKey,
         builder: (_, state) =>
             PersonaDetalleScreen(id: state.pathParameters['id']!),
         routes: [
           GoRoute(
             path: 'gestion',
-            parentNavigatorKey: _rootKey,
+            parentNavigatorKey: rootNavigatorKey,
             builder: (_, state) => PersonaGestionScreen(
               id: state.pathParameters['id']!,
               token: state.uri.queryParameters['token'],

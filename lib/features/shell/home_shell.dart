@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/router/app_router.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/util/guia_claves.dart';
+import '../../widgets/asistente_sheet.dart';
 import '../../widgets/floating_tab_bar.dart';
 
 /// Cascaron de la app: 5 tabs primarios en barra flotante + hoja "Mas".
@@ -66,6 +68,13 @@ class HomeShell extends StatelessWidget {
           ),
           FloatingTabBar(
             items: _tabs,
+            clavesItems: [
+              GuiaClaves.tabInicio,
+              GuiaClaves.tabSeBusca,
+              GuiaClaves.tabComunidad,
+              GuiaClaves.tabMapa,
+              GuiaClaves.tabAjustes,
+            ],
             accionFinal: (
               icono: Icons.menu_rounded,
               iconoActivo: Icons.menu_rounded,
@@ -80,6 +89,19 @@ class HomeShell extends StatelessWidget {
               initialLocation: i == shell.currentIndex,
             ),
           ),
+          // Burbuja del asistente, apoyada justo encima de "Mas" (el ultimo
+          // de los 6 items de la barra: 5 tabs + accionFinal).
+          Builder(builder: (context) {
+            final abajo = MediaQuery.paddingOf(context).bottom;
+            return Positioned(
+              right: 16,
+              bottom: 12 + abajo + 60 + 10,
+              child: KeyedSubtree(
+                key: GuiaClaves.botonAsistente,
+                child: const BotonAsistenteFlotante(),
+              ),
+            );
+          }),
         ],
       ),
     );
@@ -142,6 +164,17 @@ Future<void> mostrarHojaMas(BuildContext context) {
             onTap: () {
               Navigator.pop(sheetContext);
               context.push(Rutas.sos);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.volunteer_activism_rounded,
+                color: AppColors.danger500),
+            title: const Text('Necesitan ayuda'),
+            subtitle: const Text('Personas de la Red de auxilio, para '
+                'voluntarios/as'),
+            onTap: () {
+              Navigator.pop(sheetContext);
+              context.push(Rutas.necesitanAyuda);
             },
           ),
           const SizedBox(height: 8),

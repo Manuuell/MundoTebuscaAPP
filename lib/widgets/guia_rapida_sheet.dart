@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../core/router/app_router.dart';
 import '../core/theme/app_colors.dart';
+import '../core/util/guia_claves.dart';
 import '../repositories/guia_repository.dart';
+import 'guia_interactiva.dart';
+import 'mt_card.dart' show Press;
 
 /// Guia rapida de emergencia.
 ///
@@ -35,6 +40,40 @@ Future<void> mostrarGuiaRapida(BuildContext context) {
               const Text(
                 'Que hacer en las primeras horas. Funciona sin conexion.',
                 style: TextStyle(color: AppColors.muted),
+              ),
+              const SizedBox(height: 14),
+              Press(
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  iniciarRecorridoGuiado(context);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 13),
+                  decoration: BoxDecoration(
+                    color: AppColors.brand50,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                        color: AppColors.brand500.withValues(alpha: 0.25)),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.explore_rounded,
+                          color: AppColors.brand700, size: 20),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Recorrido guiado por la app',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.brand700),
+                        ),
+                      ),
+                      Icon(Icons.chevron_right_rounded,
+                          color: AppColors.brand700, size: 20),
+                    ],
+                  ),
+                ),
               ),
               const SizedBox(height: 20),
 
@@ -101,6 +140,63 @@ Future<void> mostrarGuiaRapida(BuildContext context) {
       ),
     ),
   );
+}
+
+/// Recorrido guiado: spotlight en vivo sobre la tab bar real, tocando
+/// pantalla por pantalla.
+///
+/// Es el punto de extensión para cada sección: Manuu puede añadir aquí (o en
+/// un `pasosGuiaComunidad()` propio, encadenado después de estos) los pasos
+/// que señalen el botón de publicar en el muro/voluntarios/caravanas/
+/// denuncias; jerdiaz los de filtros y mapa. El patrón es siempre el mismo:
+/// declarar una `GlobalKey` en `guia_claves.dart`, ponerla en el widget real
+/// con `key:`, y añadir un `GuiaPaso` que la señale.
+Future<void> iniciarRecorridoGuiado(BuildContext context) {
+  final router = GoRouter.of(context);
+
+  return iniciarGuiaInteractiva(context, [
+    GuiaPaso(
+      objetivo: GuiaClaves.tabInicio,
+      titulo: 'Inicio',
+      texto: 'Cifras del terremoto, noticias y accesos rápidos a lo más '
+          'urgente. Es la primera pantalla que ves al abrir la app.',
+      alEntrar: (_) async => router.go(Rutas.inicio),
+    ),
+    GuiaPaso(
+      objetivo: GuiaClaves.tabSeBusca,
+      titulo: 'Se busca',
+      texto: 'Personas que se buscan. Cambia a "¿La reconoces?" para pasar '
+          'fichas una por una, como si repasaras una lista.',
+      alEntrar: (_) async => router.go(Rutas.seBusca),
+    ),
+    GuiaPaso(
+      objetivo: GuiaClaves.tabComunidad,
+      titulo: 'Comunidad',
+      texto: 'El muro: publicaciones de necesito/ofrezco ayuda, voluntarios, '
+          'caravanas y denuncias. Todo lo que la gente reporta en vivo.',
+      alEntrar: (_) async => router.go(Rutas.comunidad),
+    ),
+    GuiaPaso(
+      objetivo: GuiaClaves.tabMapa,
+      titulo: 'Mapa',
+      texto: 'Puntos de ayuda, hospitales, rescates y la zona del epicentro, '
+          'todo en un mapa.',
+      alEntrar: (_) async => router.go(Rutas.mapa),
+    ),
+    GuiaPaso(
+      objetivo: GuiaClaves.tabAjustes,
+      titulo: 'Ajustes',
+      texto: 'Tu perfil, país activo y la Red de auxilio: el interruptor '
+          'que comparte tu ubicación si hay un sismo cerca y no respondes.',
+      alEntrar: (_) async => router.go(Rutas.configuracion),
+    ),
+    GuiaPaso(
+      objetivo: GuiaClaves.botonAsistente,
+      titulo: 'Asistente',
+      texto: 'Siempre a mano, sobre "Más". Pregúntale dónde ir o qué hacer '
+          'y te guía dentro de la app.',
+    ),
+  ]);
 }
 
 class _Telefono extends StatelessWidget {

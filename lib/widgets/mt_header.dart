@@ -74,17 +74,6 @@ class MTHeader extends ConsumerWidget implements PreferredSizeWidget {
                 color: AppColors.muted, size: 24),
           ),
         ),
-        Press(
-          onTap: () => context.push(Rutas.asistente),
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
-            padding: const EdgeInsets.all(5),
-            decoration: const BoxDecoration(
-                color: AppColors.brand50, shape: BoxShape.circle),
-            child: const Icon(Icons.smart_toy_rounded,
-                size: 19, color: AppColors.brand700),
-          ),
-        ),
         if (usuario == null)
           Padding(
             padding: const EdgeInsets.fromLTRB(4, 10, 14, 10),

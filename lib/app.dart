@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/router/app_router.dart';
 import 'core/state/pais_provider.dart';
 import 'core/theme/app_theme.dart';
+import 'features/sos/checkin_alerta_screen.dart';
 import 'repositories/safety_repository.dart';
 
 class MundoTeBuscaApp extends ConsumerStatefulWidget {
@@ -16,6 +19,8 @@ class MundoTeBuscaApp extends ConsumerStatefulWidget {
 class _MundoTeBuscaAppState extends ConsumerState<MundoTeBuscaApp>
     with WidgetsBindingObserver {
   late final _router = buildRouter();
+  Timer? _sondeoCheckin;
+  String? _quakeIdMostrado;
 
   @override
   void initState() {
@@ -29,11 +34,13 @@ class _MundoTeBuscaAppState extends ConsumerState<MundoTeBuscaApp>
       ref.read(paisProvider.notifier).cargarGuardado();
       _refrescarUbicacionRedAuxilio();
     });
+    _iniciarSondeoCheckin();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _sondeoCheckin?.cancel();
     super.dispose();
   }
 
@@ -45,11 +52,37 @@ class _MundoTeBuscaAppState extends ConsumerState<MundoTeBuscaApp>
     // sismo relevante es de kilometros, no de metros.
     if (state == AppLifecycleState.resumed) {
       _refrescarUbicacionRedAuxilio();
+      _sondearCheckin();
     }
   }
 
   void _refrescarUbicacionRedAuxilio() {
     ref.read(safetyRepositoryProvider).actualizarUbicacionSiActiva();
+  }
+
+  /// Sondea cada pocos segundos si hay un check-in pendiente.
+  ///
+  /// Sustituye a un push real (no hay FCM/APNs configurado todavia — ver
+  /// §7 de 10-alerta-sismo-checkin.md), pero para la app abierta en primer
+  /// plano el resultado es el mismo: la alerta aparece en segundos.
+  void _iniciarSondeoCheckin() {
+    _sondeoCheckin =
+        Timer.periodic(const Duration(seconds: 6), (_) => _sondearCheckin());
+  }
+
+  Future<void> _sondearCheckin() async {
+    final checkin = await ref.read(safetyRepositoryProvider).sondear();
+    if (checkin == null || checkin.status != 'pending') return;
+    if (_quakeIdMostrado == checkin.quakeId) return;
+
+    final nav = rootNavigatorKey.currentState;
+    if (nav == null) return;
+    _quakeIdMostrado = checkin.quakeId;
+    await nav.push(MaterialPageRoute<void>(
+      builder: (_) => CheckinAlertaScreen(quakeId: checkin.quakeId),
+      fullscreenDialog: true,
+    ));
+    _quakeIdMostrado = null;
   }
 
   @override

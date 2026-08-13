@@ -28,6 +28,8 @@ class FloatingTabBar extends StatelessWidget {
     required this.alTocar,
     this.accionFinal,
     this.alTocarAccion,
+    this.clavesItems,
+    this.claveAccionFinal,
   });
 
   final List<ItemTab> items;
@@ -38,6 +40,11 @@ class FloatingTabBar extends StatelessWidget {
   /// como en la web.
   final ItemTab? accionFinal;
   final VoidCallback? alTocarAccion;
+
+  /// Llaves opcionales, una por item, para que la guia interactiva
+  /// (`guia_interactiva.dart`) pueda medir y resaltar cada pestana real.
+  final List<GlobalKey?>? clavesItems;
+  final GlobalKey? claveAccionFinal;
 
   /// Alto de la capsula mas su margen inferior. Las listas necesitan este
   /// hueco al final o la ultima tarjeta queda debajo de la barra.
@@ -73,20 +80,28 @@ class FloatingTabBar extends StatelessWidget {
               children: [
                 for (var i = 0; i < items.length; i++)
                   Expanded(
-                    child: _Item(
-                      item: items[i],
-                      activo: i == indiceActual,
-                      alTocar: () => alTocar(i),
+                    child: KeyedSubtree(
+                      key: clavesItems != null && i < clavesItems!.length
+                          ? clavesItems![i]
+                          : null,
+                      child: _Item(
+                        item: items[i],
+                        activo: i == indiceActual,
+                        alTocar: () => alTocar(i),
+                      ),
                     ),
                   ),
                 if (accionFinal != null)
                   Expanded(
-                    child: _Item(
-                      item: accionFinal!,
-                      // Nunca se marca activo: abre una hoja, no cambia de
-                      // seccion, y pintarlo activo mentiria sobre donde estas.
-                      activo: false,
-                      alTocar: alTocarAccion ?? () {},
+                    child: KeyedSubtree(
+                      key: claveAccionFinal,
+                      child: _Item(
+                        item: accionFinal!,
+                        // Nunca se marca activo: abre una hoja, no cambia de
+                        // seccion, y pintarlo activo mentiria sobre donde estas.
+                        activo: false,
+                        alTocar: alTocarAccion ?? () {},
+                      ),
                     ),
                   ),
               ],

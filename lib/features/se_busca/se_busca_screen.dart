@@ -9,6 +9,7 @@ import '../../core/util/freshness.dart';
 import '../../models/persona.dart';
 import '../../repositories/personas_repository.dart';
 import '../../widgets/mt_card.dart';
+import '../../widgets/mt_search_bar.dart';
 import 'widgets/baraja_reconoces.dart';
 import 'widgets/persona_tile.dart';
 
@@ -37,14 +38,19 @@ class FiltroPersonas {
 final filtroPersonasProvider =
     StateProvider<FiltroPersonas>((ref) => const FiltroPersonas());
 
+/// Cuántas fichas por página. 10 por defecto, igual que `PAGE_SIZE` en la web.
+final porPaginaProvider = StateProvider<int>((ref) => 10);
+
 final personasProvider = FutureProvider<Fresh<List<Persona>>>((ref) async {
   final pais = ref.watch(paisProvider);
   final f = ref.watch(filtroPersonasProvider);
+  final porPagina = ref.watch(porPaginaProvider);
   return ref.watch(personasRepositoryProvider).listar(
         paisCodigo: pais.codigo,
         estado: f.estado,
         soloMenores: f.soloMenores,
         busqueda: f.busqueda,
+        limite: porPagina,
         // La lista muestra a quien se busca; las fichas sin identificar tienen
         // su propia vista.
         soloNoIdentificadas: false,
@@ -120,41 +126,38 @@ class _SeBuscaScreenState extends ConsumerState<SeBuscaScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
-            child: TextField(
-              controller: _buscador,
-              textInputAction: TextInputAction.search,
-              decoration: InputDecoration(
-                hintText: 'Buscar nombre, documento o ubicacion',
-                prefixIcon:
-                    const Icon(Icons.search_rounded, color: AppColors.muted),
-                filled: true,
-                fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(999),
-                  borderSide: const BorderSide(color: AppColors.border),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(999),
-                  borderSide: const BorderSide(color: AppColors.border),
-                ),
-                suffixIcon: _buscador.text.isEmpty
-                    ? null
-                    : IconButton(
-                        icon: const Icon(Icons.close_rounded, size: 20),
-                        onPressed: () {
-                          _buscador.clear();
-                          ref
-                              .read(filtroPersonasProvider.notifier)
-                              .update((f) => f.copyWith(busqueda: ''));
-                          setState(() {});
-                        },
-                      ),
-              ),
-              onChanged: (_) => setState(() {}),
-              onSubmitted: (v) => ref
-                  .read(filtroPersonasProvider.notifier)
-                  .update((f) => f.copyWith(busqueda: v)),
+            child: Consumer(
+              builder: (context, ref, _) {
+                final filtro = ref.watch(filtroPersonasProvider);
+                final porPagina = ref.watch(porPaginaProvider);
+                final activos = (filtro.estado != null ? 1 : 0) +
+                    (filtro.soloMenores ? 1 : 0);
+
+                return MTSearchBar(
+                  controller: _buscador,
+                  hintText: 'Nombre, documento o ubicación',
+                  filtrosActivos: activos,
+                  alTocarFiltros: () => _abrirFiltros(context, ref),
+                  onClear: () {
+                    _buscador.clear();
+                    ref
+                        .read(filtroPersonasProvider.notifier)
+                        .update((f) => f.copyWith(busqueda: ''));
+                    setState(() {});
+                  },
+                  onChanged: (_) => setState(() {}),
+                  onSubmitted: (v) => ref
+                      .read(filtroPersonasProvider.notifier)
+                      .update((f) => f.copyWith(busqueda: v)),
+                  trailing: _baraja
+                      ? null
+                      : MTPaginationButton(
+                          porPagina: porPagina,
+                          onChanged: (n) =>
+                              ref.read(porPaginaProvider.notifier).state = n,
+                        ),
+                );
+              },
             ),
           ),
           _Segmentado(
@@ -163,6 +166,44 @@ class _SeBuscaScreenState extends ConsumerState<SeBuscaScreen> {
           ),
           const SizedBox(height: 10),
           Expanded(child: _baraja ? const _VistaBaraja() : const _VistaLista()),
+        ],
+      ),
+    );
+  }
+
+  void _abrirFiltros(BuildContext context, WidgetRef ref) {
+    final filtro = ref.read(filtroPersonasProvider);
+    mostrarHojaFiltros(
+      context,
+      titulo: 'Filtrar personas',
+      alLimpiar: () =>
+          ref.read(filtroPersonasProvider.notifier).state = const FiltroPersonas(),
+      contenido: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          _Chip(
+            texto: 'Todos',
+            color: AppColors.navy700,
+            activo: filtro.estado == null && !filtro.soloMenores,
+            alTocar: () => ref.read(filtroPersonasProvider.notifier).state =
+                const FiltroPersonas(),
+          ),
+          for (final e in EstadoPersona.values)
+            _Chip(
+              texto: e.etiqueta,
+              color: colorEstado(e),
+              activo: filtro.estado == e,
+              alTocar: () => ref.read(filtroPersonasProvider.notifier).state =
+                  FiltroPersonas(estado: filtro.estado == e ? null : e),
+            ),
+          _Chip(
+            texto: 'Menores',
+            color: AppColors.warning500,
+            activo: filtro.soloMenores,
+            alTocar: () => ref.read(filtroPersonasProvider.notifier).state =
+                FiltroPersonas(soloMenores: !filtro.soloMenores),
+          ),
         ],
       ),
     );
@@ -179,8 +220,9 @@ class _Segmentado extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      height: 34,
       margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(5),
+      padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
         color: const Color(0xFFEFEFF2),
         borderRadius: BorderRadius.circular(999),
@@ -217,7 +259,7 @@ class _Opcion extends StatelessWidget {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOut,
-          padding: const EdgeInsets.symmetric(vertical: 11),
+          alignment: Alignment.center,
           decoration: BoxDecoration(
             color: activa ? Colors.white : Colors.transparent,
             borderRadius: BorderRadius.circular(999),
@@ -235,7 +277,7 @@ class _Opcion extends StatelessWidget {
             texto,
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 15,
+              fontSize: 13,
               fontWeight: FontWeight.w700,
               color: activa ? AppColors.brand700 : AppColors.muted,
             ),
@@ -254,46 +296,9 @@ class _VistaLista extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final personas = ref.watch(personasProvider);
-    final filtro = ref.watch(filtroPersonasProvider);
 
     return Column(
       children: [
-        SizedBox(
-          height: 46,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            children: [
-              _Chip(
-                texto: 'Todos',
-                color: AppColors.navy700,
-                activo: filtro.estado == null && !filtro.soloMenores,
-                alTocar: () => ref
-                    .read(filtroPersonasProvider.notifier)
-                    .state = const FiltroPersonas(),
-              ),
-              for (final e in EstadoPersona.values)
-                _Chip(
-                  texto: e.etiqueta,
-                  color: colorEstado(e),
-                  activo: filtro.estado == e,
-                  alTocar: () => ref
-                      .read(filtroPersonasProvider.notifier)
-                      .state = FiltroPersonas(
-                    estado: filtro.estado == e ? null : e,
-                  ),
-                ),
-              _Chip(
-                texto: 'Menores',
-                color: AppColors.warning500,
-                activo: filtro.soloMenores,
-                alTocar: () => ref
-                    .read(filtroPersonasProvider.notifier)
-                    .state = FiltroPersonas(soloMenores: !filtro.soloMenores),
-              ),
-            ],
-          ),
-        ),
         Expanded(
           child: personas.when(
             loading: () => const Center(child: CircularProgressIndicator()),

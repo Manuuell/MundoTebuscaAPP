@@ -122,6 +122,97 @@ class SafetyRepository {
     }
     if (res.status != 200) throw const SafetyException(SafetyError.network);
   }
+
+  /// Sondea si el dispositivo tiene un check-in pendiente ahora mismo.
+  ///
+  /// Sondeo por temporizador y no push real: no hay infraestructura de
+  /// notificaciones push (FCM/APNs) todavia. Para la demo en vivo y para el
+  /// primer tramo en produccion esto alcanza, porque el interruptor solo
+  /// tiene sentido con la app instalada y de vez en cuando abierta.
+  Future<CheckinPendiente?> sondear() async {
+    final deviceId = await DeviceId.get();
+    final res = await _db.functions
+        .invoke(_funcion, body: {'action': 'poll', 'device_id': deviceId});
+    if (res.status != 200) return null;
+    final data = res.data as Map<String, dynamic>;
+    final checkin = data['checkin'] as Map<String, dynamic>?;
+    if (checkin == null) return null;
+    return CheckinPendiente(
+      quakeId: checkin['quake_id'] as String,
+      status: checkin['status'] as String,
+      notificadoEn: DateTime.parse(checkin['notified_at'] as String),
+    );
+  }
+
+  /// Responde al check-in: 'ok' (estoy bien) o 'needs_help' (necesito ayuda).
+  Future<void> responder(String quakeId, {required bool estoyBien}) async {
+    final deviceId = await DeviceId.get();
+    final res = await _db.functions.invoke(_funcion, body: {
+      'action': 'respond',
+      'device_id': deviceId,
+      'quake_id': quakeId,
+      'status': estoyBien ? 'ok' : 'needs_help',
+    });
+    if (res.status != 200) throw const SafetyException(SafetyError.network);
+  }
+
+  /// Lista de personas que necesitan ayuda o no respondieron, para un
+  /// voluntario. Requiere sesion iniciada con rol 'volunteer' en `app_roles`
+  /// — la Edge Function lo valida server-side; aqui solo se propaga el JWT.
+  Future<List<PersonaNecesitaAyuda>> listarNecesitanAyuda() async {
+    final res =
+        await _db.functions.invoke(_funcion, body: {'action': 'list-needs-help'});
+    if (res.status == 403) throw const SafetyException(SafetyError.notOptedIn);
+    if (res.status != 200) throw const SafetyException(SafetyError.network);
+    final data = res.data as Map<String, dynamic>;
+    final lista = data['checkins'] as List<dynamic>;
+    return lista
+        .cast<Map<String, dynamic>>()
+        .map(PersonaNecesitaAyuda.fromJson)
+        .toList();
+  }
+}
+
+class CheckinPendiente {
+  const CheckinPendiente({
+    required this.quakeId,
+    required this.status,
+    required this.notificadoEn,
+  });
+
+  final String quakeId;
+
+  /// 'pending' (sin responder), 'needs_help' o 'no_response'. El propio
+  /// dispositivo solo necesita saber si sigue pendiente de mostrar la
+  /// pantalla de "¿Estás bien?"; una vez respondido deja de aparecer aquí.
+  final String status;
+  final DateTime notificadoEn;
+}
+
+class PersonaNecesitaAyuda {
+  const PersonaNecesitaAyuda({
+    required this.status,
+    required this.lat,
+    required this.lng,
+    this.nombre,
+    this.tipoSangre,
+  });
+
+  factory PersonaNecesitaAyuda.fromJson(Map<String, dynamic> json) =>
+      PersonaNecesitaAyuda(
+        status: json['status'] as String,
+        lat: (json['lat'] as num?)?.toDouble(),
+        lng: (json['lng'] as num?)?.toDouble(),
+        nombre: json['username'] as String?,
+        tipoSangre: json['blood_type'] as String?,
+      );
+
+  /// 'needs_help' (dijo que no está bien) o 'no_response' (no contestó).
+  final String status;
+  final double? lat;
+  final double? lng;
+  final String? nombre;
+  final String? tipoSangre;
 }
 
 final safetyRepositoryProvider = Provider<SafetyRepository>((ref) {
