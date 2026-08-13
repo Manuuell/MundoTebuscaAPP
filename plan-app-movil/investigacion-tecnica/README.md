@@ -1,6 +1,6 @@
 # Investigación técnica de apoyo (2026-08-13)
 
-8 investigaciones profundas (web + verificación contra el código real de
+11 investigaciones profundas (web + verificación contra el código real de
 `Elmundotebusca` y de este repo), hechas para llenar los huecos técnicos que
 `01-05` (el plan original) dejó identificados pero sin resolver. No repiten
 decisiones ya tomadas ahí (arquitectura, multi-país, roadmap, tema visual
@@ -21,3 +21,5 @@ quién le toca cada parte.
 | [07-testing-distribucion.md](07-testing-distribucion.md) | Cómo demostrar la app HOY sin tienda (Android: APK directo o Firebase App Distribution, gratis; **iOS: TestFlight SÍ exige cuenta Apple de pago, sin atajo**), CI mínimo, test de humo | **Angel** / todo el equipo para la demo de hoy |
 | [08-multi-pais.md](08-multi-pais.md) | Config centralizada de país en Dart (equivalente a `countries.ts`), por qué usar SVG y no emoji de bandera, persistencia sin auto-detección de locale (igual que la web) | **Manuu** (ya tocó `pais_provider.dart`) |
 | [09-diseno-ios.md](09-diseno-ios.md) | Tab bar flotante estilo iOS 26/Liquid Glass (mejora nueva: la web no flota), sistema de elevación en 3 niveles, `MTCard` con borde sutil, animaciones (`.animate-rise`/`.stagger`/`.hint-swipe`/`.press`), guía rápida offline empaquetada como asset | **Todos** (tab bar y `MTElevation`/`MTCard` son compartidos; guía rápida es de **Manuu**, junto con Comunidad) |
+| [10-alerta-sismo-checkin.md](10-alerta-sismo-checkin.md) | Interruptor en Ajustes que, si detecta (server-side, vía USGS) que hubo un sismo cerca, pregunta "¿estás bien?" por push y comparte ubicación con voluntarios/rescatistas si no responde o dice que no — **no es HelpSearch** (ese es BLE offline, esto es Supabase+push), documento aclara el límite explícito | **Angel** (backend/push/Edge Function) |
+| [11-actualizacion-de-datos.md](11-actualizacion-de-datos.md) | Respuesta a la pregunta de Manuu: de dónde salen y cada cuánto se refrescan noticias (GDELT/GNews, caché 6h, cron horario), sismos (USGS, caché 30 min, aún no conectado en Flutter) y mensajes de Comunidad (posts directos = instantáneo; redes sociales = cron cada 15 min, nace `pending`) | Informativo — **todos** |

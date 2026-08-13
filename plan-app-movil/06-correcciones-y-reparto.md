@@ -11,16 +11,21 @@ No repite nada de `01-05` (arquitectura, contenido/navegación, roadmap, tema
 visual, fuente web) — ya están decididos, léanlos si no lo han hecho.
 
 **Investigación técnica de apoyo**: [`investigacion-tecnica/`](investigacion-tecnica/)
-tiene 9 documentos a fondo (con research web + verificación contra el código
+tiene 11 documentos a fondo (con research web + verificación contra el código
 real) sobre todo lo que faltaba resolver técnicamente — Edge Function de
 escritura segura, deep linking real, mapa con `flutter_map`, estado/Riverpod,
 fotos/push, sistema visual/accesibilidad, testing/distribución para demostrar
-la app HOY, multi-país en Dart, y diseño tipo iOS (tab bar flotante,
+la app HOY, multi-país en Dart, diseño tipo iOS (tab bar flotante,
 profundidad, animaciones, guía rápida offline —
 [`investigacion-tecnica/09-diseno-ios.md`](investigacion-tecnica/09-diseno-ios.md),
 compartido por las 3 personas ya que toca widgets base como `MTCard`/
-`MTElevation` que todos van a usar). El índice de ahí dice cuál le toca a
-quién.
+`MTElevation` que todos van a usar), el check-in automático "¿estás bien?" tras
+un sismo con push + compartir ubicación
+([`investigacion-tecnica/10-alerta-sismo-checkin.md`](investigacion-tecnica/10-alerta-sismo-checkin.md),
+distinto de HelpSearch — ver su §0), y de dónde salen y cada cuánto se
+actualizan noticias/sismos/comunidad
+([`investigacion-tecnica/11-actualizacion-de-datos.md`](investigacion-tecnica/11-actualizacion-de-datos.md)).
+El índice de ahí dice cuál le toca a quién.
 
 ---
 
@@ -181,10 +186,25 @@ escribir datos (Fase 2), y lo que nadie más puede tocar sin pisarse.
   anónimo) igual que la web permite hoy.
 - **Noticias** (no existe pantalla, `05-fuente-web-existente.md` la describe:
   tabs Héroes / Ayuda humanitaria / Últimas noticias / Sismos) — no depende de
-  nadie más, se puede hacer en cualquier momento si sobra tiempo.
+  nadie más, se puede hacer en cualquier momento si sobra tiempo. Antes de
+  tocarla, leer
+  [`investigacion-tecnica/11-actualizacion-de-datos.md`](investigacion-tecnica/11-actualizacion-de-datos.md):
+  noticias/cifras de víctimas viven en el proceso del sitio web (no en
+  Supabase) y conviene un endpoint propio en vez de reimplementar GDELT/GNews
+  en Dart; sismos sí se puede pedir directo a USGS desde Flutter (mismo
+  patrón que `usgs.ts`), y es lo que falta para que
+  `CifrasRepository.sismo()` deje de devolver `null` siempre.
 - **Guía SOS empaquetada** (`sos_screen.dart` ya tiene el TODO: la guía de
   `/emergencias` debe ir como **asset local**, no fetch de red — es contenido
   que hace falta justo cuando no hay señal).
+- **Check-in "¿estás bien?" tras un sismo** (idea nueva de Angel, interruptor
+  en Ajustes, push + compartir ubicación con voluntarios/rescatistas si no
+  responde) — diseño completo, esquema de tablas, RLS y fases en
+  [`investigacion-tecnica/10-alerta-sismo-checkin.md`](investigacion-tecnica/10-alerta-sismo-checkin.md).
+  No es lo mismo que `HelpSearch` (ese es un repo aparte, BLE 100% offline) —
+  el documento aclara la diferencia en su §0. Depende de la Edge Function de
+  escritura (arriba) y adelanta SOLO la pieza de push necesaria para esto,
+  sin adelantar el resto de Fase 4.
 
 ---
 
