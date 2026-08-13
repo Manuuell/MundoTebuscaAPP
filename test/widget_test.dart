@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mundo_te_busca/core/util/freshness.dart';
 import 'package:mundo_te_busca/models/pais.dart';
 import 'package:mundo_te_busca/models/persona.dart';
+import 'package:mundo_te_busca/models/punto_ayuda.dart';
 import 'package:mundo_te_busca/widgets/cifra_chip.dart';
 
 void main() {
@@ -79,5 +80,41 @@ void main() {
 
     expect(find.text('-25'), findsNothing);
     expect(find.text('0'), findsOneWidget);
+  });
+
+  group('PuntoAyuda.desdeHospital', () {
+    // `hospitals.status` es `not null default 'operativo'` en el esquema, asi
+    // que toda fila cargada desde una fuente externa (OpenStreetMap) llega
+    // diciendo "operativo" sin que nadie lo haya comprobado. Tras un sismo de
+    // 7.4 eso puede mandar a alguien con un herido a un hospital que no esta
+    // recibiendo. Mientras no este verificada, la fila no afirma el estado.
+    test('sin verificar no afirma el estado operativo', () {
+      final p = PuntoAyuda.desdeHospital({
+        'id': 'x',
+        'name': 'Hospital San Jorge',
+        'status': 'operativo',
+        'verified': false,
+        'country': 'co',
+      });
+
+      expect(p.descripcion, contains('sin confirmar'));
+      expect(p.descripcion, isNot(contains('Operativo')));
+      expect(p.tipo, TipoPunto.hospital);
+    });
+
+    test('verificada si muestra el estado y lo que necesitan', () {
+      final p = PuntoAyuda.desdeHospital({
+        'id': 'y',
+        'name': 'Hospital Departamental',
+        'status': 'saturado',
+        'needs_text': 'Faltan gasas y sangre O-.',
+        'verified': true,
+        'country': 'co',
+      });
+
+      expect(p.descripcion, contains('Saturado'));
+      expect(p.descripcion, contains('gasas'));
+      expect(p.descripcion, isNot(contains('sin confirmar')));
+    });
   });
 }

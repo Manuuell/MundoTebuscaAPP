@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../core/config/env.dart';
+import '../../core/config/sismo.dart';
 import '../../core/state/pais_provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/util/freshness.dart';
@@ -24,10 +25,17 @@ final puntosProvider = FutureProvider<Fresh<List<PuntoAyuda>>>((ref) async {
 });
 
 /// Centro inicial por pais mientras no hay puntos que encuadrar.
+///
+/// Colombia no arranca en Bogota: el mapa de una emergencia debe abrir donde
+/// esta la emergencia. Si hay epicentro conocido se usa ese, y Bogota queda
+/// solo de respaldo para cuando no lo haya.
 const _centros = <String, LatLng>{
   'co': LatLng(4.7110, -74.0721),
   've': LatLng(10.4806, -66.9036),
 };
+
+LatLng _centroDe(String pais) =>
+    sismosPorPais[pais]?.centro ?? _centros[pais] ?? _centros['co']!;
 
 class MapaScreen extends ConsumerWidget {
   const MapaScreen({super.key});
@@ -37,6 +45,7 @@ class MapaScreen extends ConsumerWidget {
     final pais = ref.watch(paisProvider);
     final puntos = ref.watch(puntosProvider);
     final capas = ref.watch(capasProvider);
+    final sismo = sismosPorPais[pais.codigo];
 
     return Scaffold(
       appBar: AppBar(
@@ -61,7 +70,7 @@ class MapaScreen extends ConsumerWidget {
           Expanded(
             child: FlutterMap(
               options: MapOptions(
-                initialCenter: _centros[pais.codigo] ?? _centros['co']!,
+                initialCenter: _centroDe(pais.codigo),
                 initialZoom: 7,
               ),
               children: [
@@ -69,6 +78,21 @@ class MapaScreen extends ConsumerWidget {
                   urlTemplate: Env.mapTileUrl,
                   userAgentPackageName: 'com.mundotebusca.mundo_te_busca',
                 ),
+                // Debajo de las chinchetas a proposito: la mancha situa la
+                // zona, los puntos son lo que se toca.
+                if (sismo != null && capas.contains(TipoPunto.zona))
+                  CircleLayer(
+                    circles: [
+                      CircleMarker(
+                        point: sismo.centro,
+                        radius: sismo.radioAfectadoKm * 1000,
+                        useRadiusInMeter: true,
+                        color: AppColors.danger500.withValues(alpha: 0.10),
+                        borderColor: AppColors.danger500.withValues(alpha: 0.45),
+                        borderStrokeWidth: 1.5,
+                      ),
+                    ],
+                  ),
                 MarkerLayer(
                   markers: [
                     for (final p in puntos.valueOrNull?.data ?? const <PuntoAyuda>[])
@@ -81,6 +105,13 @@ class MapaScreen extends ConsumerWidget {
                           height: 40,
                           child: _Pin(punto: p),
                         ),
+                    if (sismo != null && capas.contains(TipoPunto.zona))
+                      Marker(
+                        point: sismo.centro,
+                        width: 44,
+                        height: 44,
+                        child: _PinEpicentro(sismo: sismo),
+                      ),
                   ],
                 ),
                 RichAttributionWidget(
@@ -120,6 +151,37 @@ class MapaScreen extends ConsumerWidget {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// El epicentro no es un punto de ayuda: no se visita, no tiene telefono y no
+/// se agota. Por eso lleva su propia chincheta en vez de reutilizar `_Pin`.
+class _PinEpicentro extends StatelessWidget {
+  const _PinEpicentro({required this.sismo});
+
+  final Sismo sismo;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: '${sismo.titulo}\n${sismo.lugar}',
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.danger500,
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white, width: 2.5),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          sismo.magnitud.toStringAsFixed(1),
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+            fontSize: 13,
+          ),
+        ),
       ),
     );
   }

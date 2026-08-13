@@ -83,4 +83,50 @@ class PuntoAyuda {
             ? null
             : DateTime.tryParse(m['updated_at'].toString()),
       );
+
+  /// Fila de `hospitals` traida a la capa `hospital` del mapa.
+  ///
+  /// El estado operativo (`operativo`/`saturado`/`lleno`/`cerrado`) solo se
+  /// muestra si la fila esta verificada. La columna es `not null` con
+  /// `default 'operativo'` en el esquema, asi que una fila cargada desde una
+  /// fuente externa la trae puesta sin que nadie lo haya comprobado: pintar
+  /// "operativo" por defecto le diria a alguien que vaya a un hospital que
+  /// quiza no esta recibiendo. Sin verificar se dice que no consta.
+  factory PuntoAyuda.desdeHospital(Map<String, dynamic> m) {
+    final verificado = m['verified'] == true;
+    final estado = m['status'] as String?;
+    final necesita = (m['needs_text'] as String?)?.trim();
+
+    final partes = <String>[
+      if (verificado && estado != null) _estadoLegible(estado),
+      if (!verificado) 'Estado sin confirmar',
+      if (verificado && necesita != null && necesita.isNotEmpty) necesita,
+    ];
+
+    return PuntoAyuda(
+      id: m['id'].toString(),
+      nombre: (m['name'] ?? '') as String,
+      tipo: TipoPunto.hospital,
+      lat: (m['lat'] as num?)?.toDouble(),
+      lng: (m['lng'] as num?)?.toDouble(),
+      descripcion: partes.join(' · '),
+      direccion: m['location_text'] as String?,
+      telefono: m['contact_phone'] as String?,
+      // `disponible` es el consenso de "si hay insumos" que vota la comunidad,
+      // no si el hospital abre. Dejarlo en null evita mezclar dos preguntas.
+      disponible: null,
+      paisCodigo: m['country'] as String?,
+      actualizadoEn: m['updated_at'] == null
+          ? null
+          : DateTime.tryParse(m['updated_at'].toString()),
+    );
+  }
+
+  static String _estadoLegible(String wire) => switch (wire) {
+        'operativo' => 'Operativo',
+        'saturado' => 'Saturado',
+        'lleno' => 'Sin cupo',
+        'cerrado' => 'Cerrado',
+        _ => wire,
+      };
 }
