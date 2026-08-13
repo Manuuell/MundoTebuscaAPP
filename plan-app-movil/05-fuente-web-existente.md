@@ -7,7 +7,7 @@
 
 El proyecto **cambió de nombre y alcance** durante su desarrollo. Nació como "Venezuela te busca" (terremoto VE) pero ahora es **multi-país** bajo la marca **"El Mundo Te Busca"** (`elmundotebusca.com`), con Venezuela y Colombia como instancias activas y arquitectura lista para agregar más países/desastres. El `README.md` describe la versión original (solo Venezuela, deploy en Vercel); la realidad actual es multi-país y desplegada en un **VPS propio**.
 
-**Decisión pendiente para el plan móvil:** ¿la app se alinea a la visión multi-país desde el día uno (selector de país, campo `country` en cada entidad), o se limita intencionalmente a un país?
+**Decisión confirmada (2026-08-13):** la app también será multi-país desde el día uno, alineada a la visión actual de la web — selector de país, campo `country` presente en cada entidad relevante del modelo de datos móvil.
 
 ---
 
@@ -181,17 +181,17 @@ Server Actions existentes cubren: autenticación/cuenta (`signUpAction`, `signIn
 ### Opciones para que la app móvil consuma los mismos datos (de menor a mayor reutilización de lo ya construido)
 
 1. **Conectar directo a Supabase** con el SDK oficial — mismo Postgres, RLS ya define qué es público, pero habría que **replicar en el cliente móvil** la validación zod y la lógica de negocio que hoy solo vive en las Server Actions (Turnstile, tokens de propietario, roles, generación de tokens de gestión).
-2. **Envolver las Server Actions actuales en API routes REST** — reutiliza toda la lógica de validación/seguridad ya escrita, es el camino de **menor riesgo de seguridad duplicada**. *(Recomendado como punto de partida.)*
+2. **Envolver las Server Actions actuales en API routes REST** — reutiliza toda la lógica de validación/seguridad ya escrita, menor riesgo de seguridad duplicada, pero exige mantener y desplegar una capa de API adicional.
 3. **Supabase Edge Functions** para lógica compartida (Turnstile, tokens) si se quiere desacoplar del propio Next.js.
 
-**Esto define el primer bloque de trabajo real antes de poder construir la app móvil**: no existe hoy una API que la app pueda consumir; hay que construirla (opción 2 es la más consistente con la arquitectura actual).
+**Decisión ya tomada en [01-arquitectura.md](01-arquitectura.md):** opción 1 (Flutter conecta directo a Supabase, sin API intermedia), con las validaciones sensibles movidas a una Edge Function delgada en vez de duplicar zod en Dart. No construir una API REST envolviendo las Server Actions.
 
 ---
 
 ## Resumen de implicaciones para el plan móvil
 
-- **Backend**: hace falta construir una capa de API REST sobre las Server Actions existentes antes de poder avanzar con clientes nativos.
-- **Identidad de producto**: confirmar si la app se llama y se comporta como "El Mundo Te Busca" (multi-país) desde el inicio.
+- **Backend**: sin API REST pública hoy, pero ya se decidió no construir una — el móvil habla directo con Supabase (ver [01-arquitectura.md](01-arquitectura.md)) con las validaciones sensibles en una Edge Function.
+- **Identidad de producto**: **confirmado** — la app se llama y se comporta como "El Mundo Te Busca", multi-país, desde el inicio.
 - **Autenticación sin cuenta**: decidir cómo se traduce el patrón "token de gestión por enlace" a una app nativa (deep link, almacenamiento local del token, o exigir cuenta siempre).
 - **Navegación**: el patrón "5 tabs + Más" ya validado en la web es el punto de partida natural para la bottom tab bar nativa.
 - **Diseño**: `04-tema-visual.md` necesita actualizarse con la paleta `gold`, la curva de animación iOS, el patrón de bottom-sheet y `.tap-card` para mantener fidelidad visual con la web.
