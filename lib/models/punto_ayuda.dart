@@ -152,6 +152,34 @@ class PuntoAyuda {
     );
   }
 
+  /// Fila de `hospitals_osm`: donde esta cada hospital, nada mas.
+  ///
+  /// Tabla aparte de `hospitals` a proposito. La web lista `hospitals` sin
+  /// filtrar por `verified`, asi que meter ahi un volcado de OpenStreetMap lo
+  /// publicaria en el sitio; y son dos cosas distintas — `hospitals` es dato
+  /// operativo que la comunidad mantiene (estado, insumos, votos) y esto es
+  /// dato de referencia importado. Nunca afirma estado porque no lo tiene.
+  factory PuntoAyuda.desdeHospitalOsm(Map<String, dynamic> m) {
+    final urgencias = m['has_emergency'] == true;
+    return PuntoAyuda(
+      id: m['id'].toString(),
+      nombre: (m['name'] ?? '') as String,
+      tipo: TipoPunto.hospital,
+      lat: (m['lat'] as num?)?.toDouble(),
+      lng: (m['lng'] as num?)?.toDouble(),
+      descripcion: urgencias
+          ? 'Con urgencias · Estado sin confirmar'
+          : 'Estado sin confirmar',
+      direccion: m['location_text'] as String?,
+      telefono: m['contact_phone'] as String?,
+      disponible: null,
+      paisCodigo: m['country'] as String?,
+      actualizadoEn: m['updated_at'] == null
+          ? null
+          : DateTime.tryParse(m['updated_at'].toString()),
+    );
+  }
+
   static String _estadoLegible(String wire) => switch (wire) {
         'operativo' => 'Operativo',
         'saturado' => 'Saturado',

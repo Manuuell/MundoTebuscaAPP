@@ -14,6 +14,14 @@ class AyudaRepository {
   static const _tabla = 'aid_points';
   static const _tablaHospitales = 'hospitals';
 
+  /// Hospitales importados de OpenStreetMap, solo para la app.
+  ///
+  /// No van en `hospitals` porque la web lista esa tabla sin filtrar por
+  /// `verified` y publicaria el volcado entero en el sitio. Su codigo no
+  /// nombra `hospitals_osm` en ningun sitio, que es lo que mantiene esto
+  /// dentro de la app sin tocar el repo web.
+  static const _tablaHospitalesOsm = 'hospitals_osm';
+
   /// `tipos` filtra en el cliente, no en el servidor: `aid_points.types` es
   /// un array de categorías del punto (comida/agua/medicina/...), un dominio
   /// de valores distinto al de las capas del mapa (`TipoPunto`). Toda fila de
@@ -24,18 +32,23 @@ class AyudaRepository {
   }) async {
     final quiere = tipos == null || tipos.isEmpty ? TipoPunto.values.toSet() : tipos;
 
-    // En paralelo: son dos tablas sin relación, encadenarlas solo suma espera.
+    // En paralelo: son tablas sin relación, encadenarlas solo suma espera.
     // Cada una se pide únicamente si su capa está encendida.
-    final (ayuda, hospitales) = await (
+    final (ayuda, hospitales, hospitalesOsm) = await (
       quiere.contains(TipoPunto.ayuda)
           ? _leer(_tabla, paisCodigo, PuntoAyuda.fromMap)
           : Future.value(const <PuntoAyuda>[]),
       quiere.contains(TipoPunto.hospital)
           ? _leer(_tablaHospitales, paisCodigo, PuntoAyuda.desdeHospital)
           : Future.value(const <PuntoAyuda>[]),
+      quiere.contains(TipoPunto.hospital)
+          ? _leer(_tablaHospitalesOsm, paisCodigo, PuntoAyuda.desdeHospitalOsm)
+          : Future.value(const <PuntoAyuda>[]),
     ).wait;
 
-    return Fresh.now([...ayuda, ...hospitales]);
+    // Los curados primero: si algún día una sede está en las dos tablas, la
+    // que alguien mantiene a mano manda sobre la importada.
+    return Fresh.now([...ayuda, ...hospitales, ...hospitalesOsm]);
   }
 
   /// Una capa caída no vacía el mapa entero: si `hospitals` falla, los puntos
