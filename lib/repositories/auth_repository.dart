@@ -16,27 +16,45 @@ class AuthRepository {
   User? get usuario => _db.auth.currentUser;
   bool get haySesion => usuario != null;
 
+  /// Dominio del correo sintetico que usa el sitio.
+  ///
+  /// La web no pide correo: pide nombre de usuario y por dentro lo convierte
+  /// con `${usuario.toLowerCase()}@users.venezuelatebusca.org` antes de
+  /// llamar a Supabase Auth. Replicarlo exacto es lo unico que permite que la
+  /// misma cuenta sirva en la web y en la app; el dominio conserva el nombre
+  /// original del proyecto, asi que no se puede "corregir" a elmundotebusca.
+  static const dominioSintetico = 'users.venezuelatebusca.org';
+
+  /// Acepta indistintamente nombre de usuario o correo real.
+  ///
+  /// Si lleva arroba se usa tal cual —hay cuentas creadas con correo de
+  /// verdad—; si no, se construye el sintetico como hace la web.
+  static String correoDe(String entrada) {
+    final t = entrada.trim();
+    if (t.contains('@')) return t.toLowerCase();
+    return '${t.toLowerCase()}@$dominioSintetico';
+  }
+
   Future<AuthResponse> entrar({
-    required String correo,
+    required String usuarioOCorreo,
     required String clave,
   }) {
     return _db.auth.signInWithPassword(
-      email: correo.trim(),
+      email: correoDe(usuarioOCorreo),
       password: clave,
     );
   }
 
   Future<AuthResponse> registrar({
-    required String correo,
+    required String usuarioOCorreo,
     required String clave,
-    String? nombre,
   }) {
+    final u = usuarioOCorreo.trim();
     return _db.auth.signUp(
-      email: correo.trim(),
+      email: correoDe(u),
       password: clave,
-      data: nombre == null || nombre.trim().isEmpty
-          ? null
-          : {'display_name': nombre.trim()},
+      // El nombre visible es el propio usuario, igual que en la web.
+      data: {'display_name': u.contains('@') ? u.split('@').first : u},
     );
   }
 
