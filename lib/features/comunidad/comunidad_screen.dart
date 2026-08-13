@@ -9,6 +9,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/util/freshness.dart';
 import '../../models/publicacion.dart';
 import '../../widgets/mt_card.dart';
+import '../../widgets/segmented_tabs.dart';
 import 'comunidad_providers.dart';
 import 'publicacion_detalle_screen.dart';
 import 'widgets/novedades_sheet.dart';
@@ -37,18 +38,8 @@ class ComunidadScreen extends ConsumerWidget {
             const _BotonFiltros(),
             const SizedBox(width: 4),
           ],
-          bottom: const TabBar(
-            isScrollable: true,
-            tabAlignment: TabAlignment.start,
-            labelColor: AppColors.brand700,
-            unselectedLabelColor: AppColors.muted,
-            indicatorColor: AppColors.brand500,
-            tabs: [
-              Tab(text: 'Muro'),
-              Tab(text: 'Voluntarios'),
-              Tab(text: 'Caravanas'),
-              Tab(text: 'Denuncias'),
-            ],
+          bottom: const SegmentedTabs(
+            tabs: ['Muro', 'Voluntarios', 'Caravanas', 'Denuncias'],
           ),
         ),
         floatingActionButtonLocation:
