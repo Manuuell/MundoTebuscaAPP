@@ -83,7 +83,7 @@ cruzado con lo que Manuel ya dejó construido. Cada persona trabaja en
 carpetas/archivos que las otras dos no tocan — minimiza choques de merge.
 Commits chicos y frecuentes, push seguido.
 
-### 👤 Persona A — Personas y Comunidad
+### 👤 Manuu — Personas y Comunidad
 
 **Ya hay base para seguir** (`se_busca_screen.dart`, `personas_repository.dart`
 — aplicar antes la corrección de esquema de la Parte 1 si nadie más lo hizo).
@@ -107,10 +107,10 @@ Commits chicos y frecuentes, push seguido.
     `body`, `reactions` jsonb, `pinned`). Ojo con `moderation_status`: los
     posts que llegan de Bluesky/Mastodon nacen `pending` y NO deben mostrarse
     hasta `approved` — filtrar siempre por `moderation_status = 'approved'`.
-- Fase 2 (cuando la Edge Function de Persona C esté lista): registrar
+- Fase 2 (cuando la Edge Function de Angel esté lista): registrar
   persona/reporte, publicar en comunidad, votar, comentar.
 
-### 👤 Persona B — Ayuda, Hospitales, Mascotas y Mapa completo
+### 👤 jerdiaz — Ayuda, Hospitales, Mascotas y Mapa completo
 
 - Aplicar la corrección de esquema de `PuntoAyuda` (Parte 1) si nadie más lo
   hizo todavía.
@@ -121,7 +121,7 @@ Commits chicos y frecuentes, push seguido.
   `lib/features/hospitales/`): tabla `hospitals` (`status` con
   operativo/saturado/lleno/cerrado, `specialties[]`, `needs_text`, consenso de
   insumos vía `votes_supplies`/`votes_no_supplies`) + `hospital_patients`
-  (para que una familia ubique a alguien internado — cruza con Persona A si
+  (para que una familia ubique a alguien internado — cruza con Manuu si
   hay tiempo, pero no bloquea).
 - **Mascotas** (`mascotas_screen.dart`, hoy vacía): tabla `pets`, mismo patrón
   que personas (`status`: perdida/encontrada/refugio/veterinario).
@@ -136,14 +136,14 @@ Commits chicos y frecuentes, push seguido.
   lucro vale la pena pedir su programa de donación** (aplica también a la web,
   que hoy los usa sin atribuir a CARTO, solo a OSM).
 
-### 👤 Persona C — Backend compartido, deep linking, cuentas y lo que falta
+### 👤 Angel — Backend compartido, deep linking, cuentas y lo que falta
 
-Esta parte es la más "de infraestructura": lo que A y B necesitan para poder
+Esta parte es la más "de infraestructura": lo que Manuu y jerdiaz necesitan para poder
 escribir datos (Fase 2), y lo que nadie más puede tocar sin pisarse.
 
 - **Edge Function delgada de validación de escrituras** — es lo que
-  desbloquea Fase 2 para A y B (crear persona, reportar estado, crear post,
-  votar, subir foto). Sin esto, A y B solo pueden avanzar en lectura. Prioridad
+  desbloquea Fase 2 para Manuu y jerdiaz (crear persona, reportar estado, crear post,
+  votar, subir foto). Sin esto, Manuu y jerdiaz solo pueden avanzar en lectura. Prioridad
   máxima de esta parte. Diseño completo ya investigado en
   [`investigacion-tecnica/01-escritura-segura.md`](investigacion-tecnica/01-escritura-segura.md):
   **NO abrir políticas RLS de insert/update nuevas** (la web ya tuvo escritura
@@ -177,7 +177,7 @@ escribir datos (Fase 2), y lo que nadie más puede tocar sin pisarse.
   (`src/lib/data.ts:1219` en el repo web) para que gestión de persona (y luego
   de ayuda/caravanas) funcione de verdad.
 - **Cuentas** (Fase 3, si alcanza el tiempo): login/registro con Supabase
-  Auth — no bloquea a A ni B, que pueden seguir publicando sin cuenta (token
+  Auth — no bloquea a Manuu ni jerdiaz, que pueden seguir publicando sin cuenta (token
   anónimo) igual que la web permite hoy.
 - **Noticias** (no existe pantalla, `05-fuente-web-existente.md` la describe:
   tabs Héroes / Ayuda humanitaria / Últimas noticias / Sismos) — no depende de
