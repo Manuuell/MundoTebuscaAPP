@@ -258,7 +258,7 @@ class _MuroTab extends ConsumerWidget {
                 : 'No hay publicaciones de tipo "${filtro.etiqueta}".',
             constructor: (p) => PublicacionCard(
               publicacion: p,
-              onTap: () => Navigator.of(context).push(
+              onTap: () => Navigator.of(context, rootNavigator: true).push(
                 MaterialPageRoute<void>(
                   builder: (_) => PublicacionDetalleScreen(publicacion: p),
                 ),

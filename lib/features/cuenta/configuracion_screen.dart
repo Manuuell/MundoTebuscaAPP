@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:go_router/go_router.dart';
+
+import '../../core/router/app_router.dart';
 import '../../core/state/pais_provider.dart';
+import '../../core/supabase/supabase_providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../repositories/auth_repository.dart';
 import '../../repositories/safety_repository.dart';
-import '../../widgets/mt_header.dart' show MarcaLockup;
-import 'perfil_screen.dart';
+import '../../widgets/mt_card.dart';
 import 'login_screen.dart';
+import 'perfil_screen.dart';
 import 'red_auxilio_provider.dart';
 
 final _versionProvider = FutureProvider<String>((ref) async {
@@ -17,11 +22,13 @@ final _versionProvider = FutureProvider<String>((ref) async {
   return '${info.version} (${info.buildNumber})';
 });
 
-/// Configuracion y perfil.
+/// Ajustes: perfil, cuenta y sesion.
 ///
-/// Ocupa el sitio que tenia SOS en la barra inferior. La linea de emergencia
-/// NO desaparece por eso: sigue arriba del todo aqui y en la portada, porque
-/// es lo unico de la app que tiene que alcanzarse sin pensar.
+/// Sigue `mockups/ajustes.html`. Ojo con lo que NO esta aqui: la linea de
+/// emergencia. El mockup no la incluye y SOS vive en su propia seccion mas
+/// abajo, asi que repetirla aqui solo duplicaria contenido — pero conviene
+/// saberlo, porque en una app de desastres es el dato mas critico de toda la
+/// interfaz.
 class ConfiguracionScreen extends ConsumerWidget {
   const ConfiguracionScreen({super.key});
 
@@ -29,239 +36,525 @@ class ConfiguracionScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final usuario = ref.watch(usuarioProvider);
     final perfil = ref.watch(perfilProvider).valueOrNull;
-    final pais = ref.watch(paisProvider);
     final version = ref.watch(_versionProvider).valueOrNull ?? '—';
+    final pais = ref.watch(paisProvider);
 
-    final nombre = (perfil?['display_name'] ??
-            perfil?['username'] ??
-            usuario?.userMetadata?['display_name'] ??
-            usuario?.email?.split('@').first) as String?;
+    final nombre = (perfil?['username'] ??
+        usuario?.userMetadata?['display_name'] ??
+        usuario?.email?.split('@').first) as String?;
 
     return Scaffold(
       backgroundColor: AppColors.bgBase,
-      appBar: AppBar(title: const Text('Configuracion')),
-      body: ListView(
+      appBar: AppBar(
+        titleSpacing: 20,
+        title: const Text('Ajustes',
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 26)),
+      ),
+      body: usuario == null
+          ? const _SinSesion()
+          : ListView(
+              padding: EdgeInsets.fromLTRB(
+                  16, 8, 16, MediaQuery.paddingOf(context).bottom + 24),
+              children: [
+                _TarjetaPerfil(nombre: nombre, perfil: perfil),
+                const SizedBox(height: 14),
+                const _Contadores(),
+                const SizedBox(height: 22),
+                const _Rotulo('SECCIONES'),
+                const SizedBox(height: 8),
+                const _BloqueSecciones(),
+                const SizedBox(height: 22),
+                const _Rotulo('RED DE AUXILIO'),
+                const SizedBox(height: 8),
+                MTCard(
+                  padding: EdgeInsets.zero,
+                  clip: true,
+                  child: _RedAuxilioSeccion(paisCodigo: pais.codigo),
+                ),
+                const SizedBox(height: 22),
+                const _Rotulo('CUENTA'),
+                const SizedBox(height: 8),
+                _BloqueCuenta(perfil: perfil),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: () => cerrarSesion(context, ref),
+                    child: const Text('Cerrar sesion'),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Center(
+                  child: TextButton(
+                    onPressed: () => _eliminarCuenta(context),
+                    child: const Text('Eliminar cuenta',
+                        style: TextStyle(
+                            color: AppColors.danger500,
+                            fontWeight: FontWeight.w700)),
+                  ),
+                ),
+                const Center(
+                  child: Text(
+                    'No borra tus publicaciones, solo las desvincula',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 12, color: AppColors.muted),
+                  ),
+                ),
+                const SizedBox(height: 26),
+                Center(
+                  child: Text('Version $version',
+                      style: const TextStyle(
+                          fontSize: 12, color: AppColors.border)),
+                ),
+              ],
+            ),
+    );
+  }
+
+  /// Eliminar la cuenta es irreversible y necesita permisos de administrador,
+  /// que la app no tiene ni debe tener. Se explica y se remite a la web, en vez
+  /// de ofrecer un boton que no puede cumplir lo que promete.
+  Future<void> _eliminarCuenta(BuildContext context) async {
+    final ir = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Eliminar cuenta'),
+        content: const Text(
+          'Esta accion no se puede deshacer. Tus publicaciones no se borran: '
+          'se desvinculan de ti.\n\n'
+          'Por seguridad, la eliminacion se hace desde el sitio web.',
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.danger500),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Abrir el sitio'),
+          ),
+        ],
+      ),
+    );
+
+    if (ir == true) {
+      await launchUrl(Uri.parse('https://elmundotebusca.com/configuracion'),
+          mode: LaunchMode.externalApplication);
+    }
+  }
+}
+
+// ── Perfil ───────────────────────────────────────────────────────────────────
+
+class _TarjetaPerfil extends StatelessWidget {
+  const _TarjetaPerfil({required this.nombre, required this.perfil});
+
+  final String? nombre;
+  final Map<String, dynamic>? perfil;
+
+  @override
+  Widget build(BuildContext context) {
+    final usuarioArroba = perfil?['username'] as String?;
+    final bio = perfil?['bio'] as String?;
+
+    final subtitulo = [
+      if (usuarioArroba != null) '@$usuarioArroba',
+      if (bio?.trim().isNotEmpty == true) bio!.trim(),
+    ].join(' · ');
+
+    return MTCard(
+      padding: const EdgeInsets.all(18),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Emergencia, siempre lo primero ──────────────────────────
-          if (pais.lineaEmergencia != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-              child: Material(
-                color: AppColors.danger500.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(16),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(16),
-                  onTap: () =>
-                      launchUrl(Uri.parse('tel:${pais.lineaEmergencia}')),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
+          const AvatarUsuario(radio: 34),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(nombre ?? 'Sin nombre',
+                    style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.navy700)),
+                if (subtitulo.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(subtitulo,
+                      style: const TextStyle(
+                          color: AppColors.muted, fontSize: 13)),
+                ],
+                const SizedBox(height: 10),
+                Press(
+                  onTap: () => Navigator.of(context, rootNavigator: true).push(
+                    MaterialPageRoute<void>(
+                        builder: (_) => const PerfilScreen()),
+                  ),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: AppColors.brand50,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(pais.lineaEmergencia!,
-                            style: Theme.of(context)
-                                .textTheme
-                                .headlineMedium
-                                ?.copyWith(
-                                    color: AppColors.danger500,
-                                    fontWeight: FontWeight.w800)),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Text(
-                            'Emergencias en ${pais.nombre}. Policia, bomberos '
-                            'y ambulancias, 24 horas.',
-                            style: const TextStyle(fontSize: 13),
-                          ),
-                        ),
-                        const Icon(Icons.call_rounded,
-                            color: AppColors.danger500),
+                        Icon(Icons.account_circle_outlined,
+                            size: 16, color: AppColors.brand700),
+                        SizedBox(width: 6),
+                        Text('Ver perfil publico',
+                            style: TextStyle(
+                                color: AppColors.brand700,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13)),
                       ],
                     ),
                   ),
                 ),
-              ),
-            ),
-
-          // ── Perfil ──────────────────────────────────────────────────
-          _Seccion(titulo: 'Mi cuenta'),
-          if (usuario == null)
-            _Tarjeta(
-              child: Column(
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-                    child: Text(
-                      'No has iniciado sesion. Con una cuenta podras publicar, '
-                      'comentar y recibir avisos sobre tus publicaciones.',
-                      style: TextStyle(color: AppColors.muted),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        onPressed: () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                              builder: (_) => const LoginScreen()),
-                        ),
-                        icon: const Icon(Icons.login_rounded, size: 18),
-                        label: const Text('Entrar o crear cuenta'),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            )
-          else
-            _Tarjeta(
-              child: Column(
-                children: [
-                  ListTile(
-                    leading: CircleAvatar(
-                      radius: 24,
-                      backgroundColor: AppColors.brand50,
-                      child: Text(
-                        (nombre ?? '?').characters.first.toUpperCase(),
-                        style: const TextStyle(
-                            color: AppColors.brand700,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 20),
-                      ),
-                    ),
-                    title: Text(nombre ?? 'Sin nombre',
-                        style:
-                            const TextStyle(fontWeight: FontWeight.w700)),
-                    subtitle: Text(usuario.email ?? ''),
-                  ),
-                  const Divider(height: 1),
-                  _Dato(
-                      etiqueta: 'Identificador',
-                      valor: '${usuario.id.substring(0, 8)}…'),
-                  if (usuario.createdAt.isNotEmpty)
-                    _Dato(
-                      etiqueta: 'Miembro desde',
-                      valor: _fecha(DateTime.tryParse(usuario.createdAt)),
-                    ),
-                  _Dato(
-                    etiqueta: 'Correo confirmado',
-                    valor: usuario.emailConfirmedAt != null ? 'Si' : 'No',
-                  ),
-                  const Divider(height: 1),
-                  ListTile(
-                    leading: const Icon(Icons.person_outline_rounded,
-                        color: AppColors.brand700),
-                    title: const Text('Ver mi perfil'),
-                    trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                          builder: (_) => const PerfilScreen()),
-                    ),
-                  ),
-                  const Divider(height: 1),
-                  ListTile(
-                    leading: const Icon(Icons.logout_rounded,
-                        color: AppColors.danger500),
-                    title: const Text('Cerrar sesion',
-                        style: TextStyle(color: AppColors.danger500)),
-                    onTap: () => cerrarSesion(context, ref),
-                  ),
-                ],
-              ),
-            ),
-
-          // ── Emergencia activa ───────────────────────────────────────
-          _Seccion(titulo: 'Emergencia'),
-          _Tarjeta(
-            child: Column(
-              children: [
-                for (final p in paisesSemilla)
-                  RadioGroup<String>(
-                    groupValue: pais.codigo,
-                    onChanged: (_) =>
-                        ref.read(paisProvider.notifier).cambiar(p),
-                    child: ListTile(
-                      leading: Text(p.bandera,
-                          style: const TextStyle(fontSize: 24)),
-                      title: Text(p.nombre),
-                      subtitle: p.magnitud == null ? null : Text(p.magnitud!),
-                      trailing: Radio<String>(value: p.codigo),
-                    ),
-                  ),
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
 
-          // ── Red de auxilio ──────────────────────────────────────────
-          _Seccion(titulo: 'Red de auxilio'),
-          _Tarjeta(child: _RedAuxilioSeccion(paisCodigo: pais.codigo)),
+class _Contadores extends StatelessWidget {
+  const _Contadores();
 
-          // ── Acerca de ───────────────────────────────────────────────
-          _Seccion(titulo: 'Acerca de'),
-          _Tarjeta(
-            child: Column(
-              children: [
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(16, 22, 16, 18),
-                  child: Center(child: MarcaLockup(alto: 76, completo: true)),
-                ),
-                const Divider(height: 1),
-                _Dato(etiqueta: 'Version', valor: version),
-                ListTile(
-                  leading: const Icon(Icons.public_rounded,
-                      color: AppColors.brand700),
-                  title: const Text('Abrir el sitio web'),
-                  trailing: const Icon(Icons.open_in_new_rounded, size: 18),
-                  onTap: () => launchUrl(
-                    Uri.parse('https://elmundotebusca.com'),
-                    mode: LaunchMode.externalApplication,
-                  ),
-                ),
-              ],
+  @override
+  Widget build(BuildContext context) => const Row(
+        children: [
+          Expanded(
+            child: _Contador(
+                icono: Icons.article_outlined,
+                valor: '0',
+                etiqueta: 'Mis publicaciones'),
+          ),
+          SizedBox(width: 12),
+          Expanded(
+            child: _Contador(
+                icono: Icons.bookmark_border_rounded,
+                valor: '0',
+                etiqueta: 'Guardados'),
+          ),
+        ],
+      );
+}
+
+class _Contador extends StatelessWidget {
+  const _Contador({
+    required this.icono,
+    required this.valor,
+    required this.etiqueta,
+  });
+
+  final IconData icono;
+  final String valor;
+  final String etiqueta;
+
+  @override
+  Widget build(BuildContext context) => MTCard(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Column(
+          children: [
+            Icon(icono, size: 22, color: AppColors.brand700),
+            const SizedBox(height: 8),
+            Text(valor,
+                style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.navy700)),
+            const SizedBox(height: 2),
+            Text(etiqueta,
+                style: const TextStyle(fontSize: 12.5, color: AppColors.muted)),
+          ],
+        ),
+      );
+}
+
+class _Rotulo extends StatelessWidget {
+  const _Rotulo(this.texto);
+
+  final String texto;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(left: 4),
+        child: Text(texto,
+            style: const TextStyle(
+                fontSize: 11.5,
+                letterSpacing: 1.0,
+                fontWeight: FontWeight.w800,
+                color: AppColors.muted)),
+      );
+}
+
+/// Destinos que en la web cuelgan del menu. Viven aqui para que ninguna ruta
+/// quede sin punto de entrada.
+class _BloqueSecciones extends StatelessWidget {
+  const _BloqueSecciones();
+
+  @override
+  Widget build(BuildContext context) => MTCard(
+        padding: EdgeInsets.zero,
+        clip: true,
+        child: Column(
+          children: [
+            _Fila(
+              icono: Icons.emergency_rounded,
+              color: AppColors.danger500,
+              titulo: 'Emergencia y seguridad',
+              detalle: 'Telefonos y guia de las primeras horas',
+              alTocar: () => context.push(Rutas.sos),
+            ),
+            const Divider(height: 1, indent: 66),
+            _Fila(
+              icono: Icons.smart_toy_rounded,
+              color: AppColors.brand500,
+              titulo: 'Asistente',
+              detalle: 'Pregunta sobre la emergencia o la app',
+              alTocar: () => context.push(Rutas.asistente),
+            ),
+            const Divider(height: 1, indent: 66),
+            _Fila(
+              icono: Icons.local_hospital_outlined,
+              color: AppColors.brand700,
+              titulo: 'Ayuda y hospitales',
+              alTocar: () => context.push(Rutas.ayuda),
+            ),
+            const Divider(height: 1, indent: 66),
+            _Fila(
+              icono: Icons.pets_outlined,
+              color: AppColors.warning500,
+              titulo: 'Mascotas',
+              alTocar: () => context.push(Rutas.mascotas),
+            ),
+            const Divider(height: 1, indent: 66),
+            _Fila(
+              icono: Icons.volunteer_activism_rounded,
+              color: AppColors.danger500,
+              titulo: 'Necesitan ayuda',
+              detalle: 'Red de auxilio, para voluntarios/as',
+              alTocar: () => context.push(Rutas.necesitanAyuda),
+            ),
+          ],
+        ),
+      );
+}
+
+// ── Cuenta ───────────────────────────────────────────────────────────────────
+
+class _BloqueCuenta extends ConsumerWidget {
+  const _BloqueCuenta({required this.perfil});
+
+  final Map<String, dynamic>? perfil;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final recuperacion = perfil?['recovery_email'] as String?;
+    final avisos = perfil?['email_notifications'] as bool? ?? false;
+
+    return MTCard(
+      padding: EdgeInsets.zero,
+      clip: true,
+      child: Column(
+        children: [
+          _Fila(
+            icono: Icons.lock_outline_rounded,
+            color: AppColors.info500,
+            titulo: 'Cambiar contrasena',
+            alTocar: () => _cambiarClave(context, ref),
+          ),
+          const Divider(height: 1, indent: 66),
+          _Fila(
+            icono: Icons.mail_outline_rounded,
+            color: const Color(0xFF8B5CF6),
+            titulo: 'Correo de recuperacion',
+            detalle: recuperacion?.isNotEmpty == true
+                ? recuperacion
+                : 'No configurado',
+            // Escribir en `profiles` necesita permisos que la app no tiene
+            // todavia: se cambia en la web.
+            alTocar: () => launchUrl(
+              Uri.parse('https://elmundotebusca.com/configuracion'),
+              mode: LaunchMode.externalApplication,
             ),
           ),
-          const SizedBox(height: 32),
+          const Divider(height: 1, indent: 66),
+          _Fila(
+            icono: Icons.notifications_none_rounded,
+            color: AppColors.success500,
+            titulo: 'Avisos por correo',
+            detalle: 'Cambios en tus publicaciones',
+            // El interruptor refleja el estado pero no lo guarda: eso es una
+            // escritura en `profiles`. Uno que se mueve y no guarda es peor que
+            // uno que dice por que no se puede.
+            control: Switch(
+              value: avisos,
+              onChanged: (_) => ScaffoldMessenger.of(context)
+                ..clearSnackBars()
+                ..showSnackBar(const SnackBar(
+                  content: Text(
+                      'Este ajuste se cambia por ahora desde el sitio web.'),
+                  behavior: SnackBarBehavior.floating,
+                )),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  static String _fecha(DateTime? d) =>
-      d == null ? '—' : '${d.day}/${d.month}/${d.year}';
-}
+  /// Cambiar contrasena SI funciona desde la app: es Supabase Auth, no
+  /// `profiles`, asi que no depende de las politicas que hoy bloquean el resto.
+  Future<void> _cambiarClave(BuildContext context, WidgetRef ref) async {
+    final ctrl = TextEditingController();
+    final form = GlobalKey<FormState>();
 
-class _Seccion extends StatelessWidget {
-  const _Seccion({required this.titulo});
-
-  final String titulo;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 22, 20, 8),
-        child: Text(titulo.toUpperCase(),
-            style: const TextStyle(
-                fontSize: 11,
-                letterSpacing: 1.1,
-                fontWeight: FontWeight.w700,
-                color: AppColors.muted)),
-      );
-}
-
-class _Tarjeta extends StatelessWidget {
-  const _Tarjeta({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.border),
+    final nueva = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cambiar contrasena'),
+        content: Form(
+          key: form,
+          child: TextFormField(
+            controller: ctrl,
+            obscureText: true,
+            autofocus: true,
+            decoration: const InputDecoration(
+              labelText: 'Nueva contrasena',
+              border: OutlineInputBorder(),
+            ),
+            validator: (v) =>
+                (v ?? '').length < 6 ? 'Usa al menos 6 caracteres.' : null,
           ),
-          clipBehavior: Clip.antiAlias,
-          child: child,
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () {
+              if (form.currentState!.validate()) {
+                Navigator.pop(ctx, ctrl.text);
+              }
+            },
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+
+    ctrl.dispose();
+    if (nueva == null || !context.mounted) return;
+
+    final mensajero = ScaffoldMessenger.of(context);
+    try {
+      await ref
+          .read(supabaseClientProvider)
+          .auth
+          .updateUser(UserAttributes(password: nueva));
+      mensajero
+        ..clearSnackBars()
+        ..showSnackBar(const SnackBar(
+          content: Text('Contrasena actualizada.'),
+          behavior: SnackBarBehavior.floating,
+        ));
+    } catch (e) {
+      mensajero
+        ..clearSnackBars()
+        ..showSnackBar(SnackBar(
+          content: Text('No pudimos cambiarla: $e'),
+          behavior: SnackBarBehavior.floating,
+        ));
+    }
+  }
+}
+
+class _Fila extends StatelessWidget {
+  const _Fila({
+    required this.icono,
+    required this.color,
+    required this.titulo,
+    this.detalle,
+    this.alTocar,
+    this.control,
+  });
+
+  final IconData icono;
+  final Color color;
+  final String titulo;
+  final String? detalle;
+  final VoidCallback? alTocar;
+  final Widget? control;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      onTap: alTocar,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+      leading: Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(11),
+        ),
+        child: Icon(icono, size: 19, color: color),
+      ),
+      title: Text(titulo,
+          style: const TextStyle(
+              fontWeight: FontWeight.w700, color: AppColors.navy700)),
+      subtitle: detalle == null
+          ? null
+          : Text(detalle!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 12.5, color: AppColors.muted)),
+      trailing: control ??
+          (alTocar == null
+              ? null
+              : const Icon(Icons.chevron_right_rounded,
+                  color: AppColors.muted)),
+    );
+  }
+}
+
+class _SinSesion extends StatelessWidget {
+  const _SinSesion();
+
+  @override
+  Widget build(BuildContext context) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.settings_outlined,
+                  size: 52, color: AppColors.border),
+              const SizedBox(height: 16),
+              Text('Sin sesion iniciada',
+                  style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 8),
+              const Text(
+                'Entra con tu cuenta para gestionar tu perfil y tus ajustes.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.muted),
+              ),
+              const SizedBox(height: 20),
+              FilledButton.icon(
+                onPressed: () =>
+                    Navigator.of(context, rootNavigator: true).push(
+                  MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+                ),
+                icon: const Icon(Icons.login_rounded, size: 18),
+                label: const Text('Entrar o crear cuenta'),
+              ),
+            ],
+          ),
         ),
       );
 }
@@ -358,24 +651,4 @@ class _RedAuxilioSeccion extends ConsumerWidget {
         SafetyError.network => 'No se pudo conectar. Intenta de nuevo.',
         SafetyError.notOptedIn => 'Primero activa el interruptor.',
       };
-}
-
-class _Dato extends StatelessWidget {
-  const _Dato({required this.etiqueta, required this.valor});
-
-  final String etiqueta;
-  final String valor;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-        child: Row(
-          children: [
-            Expanded(child: Text(etiqueta)),
-            Text(valor,
-                style: const TextStyle(
-                    color: AppColors.muted, fontWeight: FontWeight.w600)),
-          ],
-        ),
-      );
 }

@@ -1,6 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/config/env.dart';
 import '../core/supabase/supabase_providers.dart';
 
 /// Sesion contra el Supabase real del sitio web.
@@ -16,33 +20,65 @@ class AuthRepository {
   User? get usuario => _db.auth.currentUser;
   bool get haySesion => usuario != null;
 
-  /// Dominio del correo sintetico que usa el sitio.
-  ///
-  /// La web no pide correo: pide nombre de usuario y por dentro lo convierte
-  /// con `${usuario.toLowerCase()}@users.venezuelatebusca.org` antes de
-  /// llamar a Supabase Auth. Replicarlo exacto es lo unico que permite que la
-  /// misma cuenta sirva en la web y en la app; el dominio conserva el nombre
-  /// original del proyecto, asi que no se puede "corregir" a elmundotebusca.
+  /// Dominio de los correos sinteticos que crea el sitio al registrar.
   static const dominioSintetico = 'users.venezuelatebusca.org';
 
-  /// Acepta indistintamente nombre de usuario o correo real.
+  /// Entra con nombre de usuario, igual que el sitio.
   ///
-  /// Si lleva arroba se usa tal cual —hay cuentas creadas con correo de
-  /// verdad—; si no, se construye el sintetico como hace la web.
-  static String correoDe(String entrada) {
-    final t = entrada.trim();
-    if (t.contains('@')) return t.toLowerCase();
-    return '${t.toLowerCase()}@$dominioSintetico';
-  }
-
-  Future<AuthResponse> entrar({
+  /// El correo NO se puede construir a partir del usuario: el sitio guarda un
+  /// `login_email` por cuenta en `profiles`, y unas veces es el sintetico y
+  /// otras el correo real de la persona. Hay que consultarlo.
+  ///
+  /// Esa consulta no se puede hacer desde la app: RLS no deja que la llave
+  /// anonima lea `profiles` —ni debe, seria la lista de usuarios de una
+  /// plataforma de desaparecidos— asi que la resuelve el proxio del servidor,
+  /// que devuelve la sesion y nunca el correo.
+  Future<void> entrar({
     required String usuarioOCorreo,
     required String clave,
-  }) {
-    return _db.auth.signInWithPassword(
-      email: correoDe(usuarioOCorreo),
-      password: clave,
-    );
+  }) async {
+    final entrada = usuarioOCorreo.trim();
+
+    // Con arroba se intenta directo: ahorra un salto y funciona si la persona
+    // escribio su correo real.
+    if (entrada.contains('@')) {
+      await _db.auth
+          .signInWithPassword(email: entrada.toLowerCase(), password: clave);
+      return;
+    }
+
+    if (Env.authUrl.isEmpty) {
+      throw const AuthException(
+        'El inicio de sesion por usuario no esta configurado en esta version.',
+      );
+    }
+
+    final res = await http
+        .post(
+          Uri.parse(Env.authUrl),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'username': entrada, 'password': clave}),
+        )
+        .timeout(const Duration(seconds: 25));
+
+    if (res.statusCode == 429) {
+      throw const AuthException(
+        'Demasiados intentos. Espera unos minutos antes de reintentar.',
+      );
+    }
+    if (res.statusCode != 200) {
+      throw const AuthException('Invalid login credentials');
+    }
+
+    final datos = jsonDecode(res.body) as Map<String, dynamic>;
+    final refresco = datos['refresh_token'] as String?;
+    if (refresco == null) {
+      throw const AuthException('Invalid login credentials');
+    }
+
+    // Con el refresh token el SDK monta la sesion y la persiste igual que si
+    // hubiera hecho el login el mismo.
+    await _db.auth.setSession(refresco);
   }
 
   Future<AuthResponse> registrar({
@@ -51,7 +87,9 @@ class AuthRepository {
   }) {
     final u = usuarioOCorreo.trim();
     return _db.auth.signUp(
-      email: correoDe(u),
+      email: u.contains('@')
+          ? u.toLowerCase()
+          : '${u.toLowerCase()}@$dominioSintetico',
       password: clave,
       // El nombre visible es el propio usuario, igual que en la web.
       data: {'display_name': u.contains('@') ? u.split('@').first : u},
@@ -60,23 +98,42 @@ class AuthRepository {
 
   Future<void> salir() => _db.auth.signOut();
 
-  /// Ficha publica del usuario.
+  /// Ficha del usuario.
   ///
-  /// La clave es `user_id`, NO `id` — verificado contra las consultas del
-  /// sitio web. Con `id` la fila nunca aparecia y el perfil salia vacio aunque
-  /// existiera.
+  /// Se pide al servidor y no a Supabase directo: `profiles` no tiene politica
+  /// RLS de lectura para el propio usuario —el sitio siempre la consulta desde
+  /// su backend— asi que desde la app la consulta vuelve vacia y el perfil
+  /// caia al trozo del correo como nombre.
   ///
-  /// Las politicas RLS solo dejan ver el propio perfil, asi que sin sesion
-  /// esto devuelve null aunque la tabla tenga filas.
+  /// Se intenta primero la via directa por si algun dia se anade esa politica.
   Future<Map<String, dynamic>?> perfil() async {
     final u = usuario;
     if (u == null) return null;
+
     try {
-      return await _db
+      final directo = await _db
           .from('profiles')
-          .select('user_id, username, avatar_url, bio')
+          .select('user_id, username, avatar_url, bio, recovery_email, email_notifications')
           .eq('user_id', u.id)
           .maybeSingle();
+      if (directo != null) return directo;
+    } catch (_) {
+      // RLS o red: se cae al servidor.
+    }
+
+    if (Env.authUrl.isEmpty) return null;
+    final token = _db.auth.currentSession?.accessToken;
+    if (token == null) return null;
+
+    try {
+      final res = await http.get(
+        Uri.parse('${Env.authUrl}/profile'),
+        headers: {'Authorization': 'Bearer $token'},
+      ).timeout(const Duration(seconds: 20));
+
+      if (res.statusCode != 200) return null;
+      final datos = jsonDecode(res.body);
+      return datos is Map<String, dynamic> ? datos : null;
     } catch (_) {
       return null;
     }

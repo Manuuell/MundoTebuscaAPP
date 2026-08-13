@@ -89,17 +89,176 @@ CONTEXTO DE AHORA MISMO (usalo como fuente de verdad para cifras):
 ${contexto || 'Sin datos de contexto disponibles.'}`;
 }
 
+
+// ── Login por nombre de usuario ──────────────────────────────────────────────
+// La app no puede resolver usuario -> correo por su cuenta: RLS no deja que la
+// llave anonima lea `profiles`, y con razon —seria la lista de usuarios de una
+// plataforma de desaparecidos. El sitio hace la misma consulta en su servidor;
+// esto replica ese paso.
+//
+// Se devuelve la sesion, nunca el correo: filtrarlo permitiria enumerar
+// cuentas.
+
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const ANON = process.env.SUPABASE_ANON_KEY;
+
+// Mas estricto que el del chat: aqui se prueban contrasenas.
+const intentos = new Map();
+const MAX_INTENTOS = 8;
+const VENTANA = 15 * 60_000;
+
+function bloqueado(ip) {
+  const ahora = Date.now();
+  const previos = (intentos.get(ip) || []).filter((t) => ahora - t < VENTANA);
+  intentos.set(ip, previos);
+  return previos.length >= MAX_INTENTOS;
+}
+
+function apuntarFallo(ip) {
+  const previos = intentos.get(ip) || [];
+  previos.push(Date.now());
+  intentos.set(ip, previos);
+}
+
+/// Devuelve el perfil del portador del token.
+///
+/// La app no puede leerlo por su cuenta: `profiles` no tiene politica RLS de
+/// lectura para el propio usuario, porque el sitio siempre la consulta desde
+/// su servidor. En vez de abrir esa tabla —que es la lista de usuarios de una
+/// plataforma de desaparecidos— se resuelve aqui, validando antes el token.
+async function manejarPerfil(req, res, cors) {
+  const cabecera = req.headers.authorization || '';
+  if (!cabecera.startsWith('Bearer ')) {
+    return res.writeHead(401, { ...cors, 'Content-Type': 'application/json' })
+      .end(JSON.stringify({ error: 'sin_token' }));
+  }
+  const token = cabecera.slice(7);
+
+  try {
+    // El token se valida contra Supabase, no se decodifica a mano: firmarlo
+    // es lo unico que prueba que la sesion es real.
+    const quien = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: { apikey: ANON, Authorization: `Bearer ${token}` },
+    });
+    if (!quien.ok) {
+      const detalle = await quien.text().catch(() => '');
+      console.log(`[perfil] token rechazado: ${quien.status} ${detalle.slice(0, 200)}`);
+      return res.writeHead(401, { ...cors, 'Content-Type': 'application/json' })
+        .end(JSON.stringify({ error: 'token_invalido' }));
+    }
+    const usuario = await quien.json();
+    console.log(`[perfil] token valido, user_id=${usuario.id}`);
+
+    const fila = await fetch(
+      `${SUPABASE_URL}/rest/v1/profiles`
+      + `?select=user_id,username,avatar_url,bio,recovery_email,email_notifications`
+      + `&user_id=eq.${encodeURIComponent(usuario.id)}&limit=1`,
+      { headers: { apikey: SERVICE_ROLE, Authorization: `Bearer ${SERVICE_ROLE}` } },
+    );
+    if (!fila.ok) {
+      const detalle = await fila.text().catch(() => '');
+      console.log(`[perfil] consulta fallo: ${fila.status} ${detalle.slice(0, 250)}`);
+    }
+    const datos = fila.ok ? await fila.json() : [];
+    console.log(`[perfil] filas=${datos.length} username=${datos[0]?.username ?? '(ninguno)'}`);
+
+    return res.writeHead(200, { ...cors, 'Content-Type': 'application/json' })
+      .end(JSON.stringify(datos[0] || null));
+  } catch (err) {
+    console.error('[perfil] excepcion:', err);
+    return res.writeHead(500, { ...cors, 'Content-Type': 'application/json' })
+      .end(JSON.stringify({ error: 'interno' }));
+  }
+}
+
+async function manejarLogin(req, res, cors, ip, datos) {
+  if (!SUPABASE_URL || !SERVICE_ROLE || !ANON) {
+    console.error('[auth] faltan variables de Supabase');
+    return res.writeHead(500, { ...cors, 'Content-Type': 'application/json' })
+      .end(JSON.stringify({ error: 'sin_configurar' }));
+  }
+
+  if (bloqueado(ip)) {
+    return res.writeHead(429, { ...cors, 'Content-Type': 'application/json' })
+      .end(JSON.stringify({ error: 'demasiados_intentos' }));
+  }
+
+  const usuario = String(datos.username || '').trim().toLowerCase();
+  const clave = String(datos.password || '');
+
+  if (!usuario || !clave) {
+    return res.writeHead(400, { ...cors, 'Content-Type': 'application/json' })
+      .end(JSON.stringify({ error: 'faltan_datos' }));
+  }
+
+  try {
+    // 1) usuario -> login_email, con service role (RLS no aplica).
+    const busca = await fetch(
+      `${SUPABASE_URL}/rest/v1/profiles`
+      + `?select=login_email&username_lower=eq.${encodeURIComponent(usuario)}`
+      + '&limit=1',
+      { headers: { apikey: SERVICE_ROLE, Authorization: `Bearer ${SERVICE_ROLE}` } },
+    );
+    const filas = busca.ok ? await busca.json() : [];
+    const correo = filas[0]?.login_email;
+
+    // Mismo mensaje exista o no la cuenta: distinguirlos permite averiguar
+    // que usuarios existen probando nombres.
+    if (!correo) {
+      apuntarFallo(ip);
+      return res.writeHead(401, { ...cors, 'Content-Type': 'application/json' })
+        .end(JSON.stringify({ error: 'credenciales_invalidas' }));
+    }
+
+    // 2) Login normal con la llave publica.
+    const entrada = await fetch(
+      `${SUPABASE_URL}/auth/v1/token?grant_type=password`,
+      {
+        method: 'POST',
+        headers: { apikey: ANON, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: correo, password: clave }),
+      },
+    );
+
+    if (!entrada.ok) {
+      apuntarFallo(ip);
+      return res.writeHead(401, { ...cors, 'Content-Type': 'application/json' })
+        .end(JSON.stringify({ error: 'credenciales_invalidas' }));
+    }
+
+    const sesion = await entrada.json();
+    intentos.delete(ip);
+
+    // Solo los tokens. El correo se queda aqui.
+    return res.writeHead(200, { ...cors, 'Content-Type': 'application/json' })
+      .end(JSON.stringify({
+        access_token: sesion.access_token,
+        refresh_token: sesion.refresh_token,
+        expires_in: sesion.expires_in,
+      }));
+  } catch (err) {
+    console.error('[auth] excepcion:', err);
+    return res.writeHead(500, { ...cors, 'Content-Type': 'application/json' })
+      .end(JSON.stringify({ error: 'interno' }));
+  }
+}
+
 // ── Servidor ─────────────────────────────────────────────────────────────────
 
 const servidor = http.createServer(async (req, res) => {
+  if (req.method === 'GET') console.log(`[req] GET ${req.url}`);
   const cors = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   };
 
   if (req.method === 'OPTIONS') return res.writeHead(204, cors).end();
   if (req.method === 'GET') {
+    if ((req.url || '').startsWith('/auth/profile')) {
+      return manejarPerfil(req, res, cors);
+    }
     return res.writeHead(200, { ...cors, 'Content-Type': 'application/json' })
       .end(JSON.stringify({ ok: true, modelo: MODELO }));
   }
@@ -109,6 +268,8 @@ const servidor = http.createServer(async (req, res) => {
 
   const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim()
     || req.socket.remoteAddress;
+
+  console.log(`[req] ${req.method} ${req.url}`);
 
   if (excedido(ip)) {
     return res.writeHead(429, { ...cors, 'Content-Type': 'application/json' })
@@ -129,6 +290,11 @@ const servidor = http.createServer(async (req, res) => {
     datos = JSON.parse(cuerpo || '{}');
   } catch {
     return res.writeHead(400, cors).end();
+  }
+
+  // nginx enruta /api/app-auth aqui como /auth.
+  if ((req.url || '').startsWith('/auth')) {
+    return manejarLogin(req, res, cors, ip, datos);
   }
 
   const mensajes = Array.isArray(datos.messages) ? datos.messages : [];
