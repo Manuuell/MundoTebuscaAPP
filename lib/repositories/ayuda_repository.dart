@@ -11,19 +11,27 @@ class AyudaRepository {
 
   final SupabaseClient _db;
 
-  static const _tabla = 'puntos_ayuda';
+  static const _tabla = 'aid_points';
 
+  /// `tipos` filtra en el cliente, no en el servidor: `aid_points.types` es
+  /// un array de categorías del punto (comida/agua/medicina/...), un dominio
+  /// de valores distinto al de las capas del mapa (`TipoPunto`). Toda fila de
+  /// esta tabla es capa `ayuda` (ver nota en `PuntoAyuda`) — si se pide un
+  /// set de capas que no incluye `ayuda`, no hay nada que devolver todavía.
   Future<Fresh<List<PuntoAyuda>>> listar({
     required String paisCodigo,
     Set<TipoPunto>? tipos,
   }) async {
-    var q = _db.from(_tabla).select().eq('pais', paisCodigo);
-
-    if (tipos != null && tipos.isNotEmpty) {
-      q = q.inFilter('tipo', tipos.map((t) => t.wire).toList());
+    if (tipos != null && tipos.isNotEmpty && !tipos.contains(TipoPunto.ayuda)) {
+      return Fresh.now(const <PuntoAyuda>[]);
     }
 
-    final rows = await q.order('updated_at', ascending: false);
+    final rows = await _db
+        .from(_tabla)
+        .select()
+        .eq('country', paisCodigo)
+        .order('updated_at', ascending: false);
+
     return Fresh.now(rows.map(PuntoAyuda.fromMap).toList(growable: false));
   }
 
@@ -31,7 +39,7 @@ class AyudaRepository {
     return _db
         .from(_tabla)
         .stream(primaryKey: ['id'])
-        .eq('pais', paisCodigo)
+        .eq('country', paisCodigo)
         .map((rows) => rows.map(PuntoAyuda.fromMap).toList(growable: false));
   }
 }

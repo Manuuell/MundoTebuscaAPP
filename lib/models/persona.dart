@@ -25,10 +25,11 @@ enum EstadoPersona {
 
 /// Persona publicada en "Se busca".
 ///
-/// TODO(schema): los nombres de columna salen de lo que expone la web hoy.
-/// Antes de conectar contra el proyecto real hay que contrastarlos con
-/// `supabase/schema.sql` del repo web — si alguno no coincide, el `fromMap`
-/// falla en silencio devolviendo null, no revienta.
+/// Columnas verificadas contra `supabase/schema.sql` del repo web (tabla
+/// `persons`, no `personas`) — ver la corrección en
+/// `plan-app-movil/06-correcciones-y-reparto.md` §Parte 1. Ojo particular con
+/// `estado`: en `persons` esa columna es la región geográfica (ej. "Zulia"),
+/// NO el status de búsqueda — `EstadoPersona` lee de la columna `status`.
 class Persona {
   const Persona({
     required this.id,
@@ -39,6 +40,10 @@ class Persona {
     this.ubicacion,
     this.fotoUrl,
     this.descripcion,
+    this.paisCodigo,
+    this.esNoIdentificada = false,
+    this.lat,
+    this.lng,
     this.actualizadoEn,
   });
 
@@ -50,6 +55,17 @@ class Persona {
   final String? ubicacion;
   final String? fotoUrl;
   final String? descripcion;
+  final String? paisCodigo;
+
+  /// Distingue "Busco a alguien" (false) de "Vi/encontré a alguien" (true) —
+  /// misma tabla `persons`, es lo que separa "Se busca" de "¿La reconoces?".
+  final bool esNoIdentificada;
+
+  /// Nullable en la base: mucha ubicación es solo `ubicacion` (texto libre),
+  /// sin coordenadas.
+  final double? lat;
+  final double? lng;
+
   final DateTime? actualizadoEn;
 
   /// La web marca aparte a los menores (`/?maxAge=11`); el corte vive aqui
@@ -57,16 +73,25 @@ class Persona {
   bool get esMenor => edad != null && edad! <= 11;
 
   factory Persona.fromMap(Map<String, dynamic> m) {
+    final nombre = [m['first_name'], m['last_name']]
+        .whereType<String>()
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .join(' ');
     return Persona(
       id: m['id'].toString(),
-      nombre: (m['nombre'] ?? m['name'] ?? '') as String,
-      estado: EstadoPersona.desdeWire(m['estado'] as String?) ??
+      nombre: nombre,
+      estado: EstadoPersona.desdeWire(m['status'] as String?) ??
           EstadoPersona.porLocalizar,
-      edad: m['edad'] as int?,
-      documento: m['documento'] as String?,
-      ubicacion: m['ubicacion'] as String?,
-      fotoUrl: m['foto_url'] as String?,
-      descripcion: m['descripcion'] as String?,
+      edad: m['age'] as int?,
+      documento: m['cedula'] as String?,
+      ubicacion: m['location_text'] as String?,
+      fotoUrl: m['photo_url'] as String?,
+      descripcion: m['description'] as String?,
+      paisCodigo: m['country'] as String?,
+      esNoIdentificada: m['is_unidentified'] as bool? ?? false,
+      lat: (m['lat'] as num?)?.toDouble(),
+      lng: (m['lng'] as num?)?.toDouble(),
       actualizadoEn: m['updated_at'] == null
           ? null
           : DateTime.tryParse(m['updated_at'].toString()),

@@ -22,27 +22,39 @@ enum TipoPunto {
 
 /// Punto geolocalizado del mapa de la emergencia.
 ///
-/// TODO(schema): contrastar nombres de columna con `supabase/schema.sql` del
-/// repo web antes de conectar contra el proyecto real.
+/// Columnas verificadas contra `supabase/schema.sql` del repo web (tabla
+/// `aid_points`, no `puntos_ayuda`) — ver la corrección en
+/// `plan-app-movil/06-correcciones-y-reparto.md` §Parte 1.
+///
+/// `tipo` aquí es la CAPA del mapa (ayuda/hospital/refugio/rescate/zona, como
+/// en `CrisisMap.tsx`), no la columna real `types` de `aid_points` (que es un
+/// array de categorías del punto: comida/agua/medicina/... — dominio de
+/// valores distinto). Todo lo que sale de `aid_points` es la capa `ayuda`;
+/// hospitales/refugios/rescates/zonas vienen de otras tablas que
+/// `AyudaRepository` todavía no conecta (Parte 2, Persona B).
 class PuntoAyuda {
   const PuntoAyuda({
     required this.id,
     required this.nombre,
     required this.tipo,
-    required this.lat,
-    required this.lon,
+    this.lat,
+    this.lng,
     this.descripcion,
     this.direccion,
     this.telefono,
     this.disponible,
+    this.paisCodigo,
     this.actualizadoEn,
   });
 
   final String id;
   final String nombre;
   final TipoPunto tipo;
-  final double lat;
-  final double lon;
+
+  /// Nullable en la base: mucha ubicación es solo `direccion` (texto libre),
+  /// sin coordenadas.
+  final double? lat;
+  final double? lng;
   final String? descripcion;
   final String? direccion;
   final String? telefono;
@@ -51,18 +63,22 @@ class PuntoAyuda {
   /// `null` = nadie ha reportado todavia, que no es lo mismo que "se acabo".
   final bool? disponible;
 
+  final String? paisCodigo;
+
   final DateTime? actualizadoEn;
 
   factory PuntoAyuda.fromMap(Map<String, dynamic> m) => PuntoAyuda(
         id: m['id'].toString(),
-        nombre: (m['nombre'] ?? '') as String,
-        tipo: TipoPunto.desdeWire(m['tipo'] as String?) ?? TipoPunto.ayuda,
-        lat: (m['lat'] as num).toDouble(),
-        lon: (m['lon'] as num).toDouble(),
-        descripcion: m['descripcion'] as String?,
-        direccion: m['direccion'] as String?,
-        telefono: m['telefono'] as String?,
-        disponible: m['disponible'] as bool?,
+        nombre: (m['name'] ?? '') as String,
+        // Fila de `aid_points`: siempre capa "ayuda" (ver nota de clase).
+        tipo: TipoPunto.ayuda,
+        lat: (m['lat'] as num?)?.toDouble(),
+        lng: (m['lng'] as num?)?.toDouble(),
+        descripcion: m['description'] as String?,
+        direccion: m['location_text'] as String?,
+        telefono: m['contact_phone'] as String?,
+        disponible: m['available'] as bool?,
+        paisCodigo: m['country'] as String?,
         actualizadoEn: m['updated_at'] == null
             ? null
             : DateTime.tryParse(m['updated_at'].toString()),

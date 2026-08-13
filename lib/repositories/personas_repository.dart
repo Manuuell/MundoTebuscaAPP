@@ -16,7 +16,7 @@ class PersonasRepository {
 
   final SupabaseClient _db;
 
-  static const _tabla = 'personas';
+  static const _tabla = 'persons';
 
   /// Listado con filtros. `Fresh` obliga a que la antiguedad llegue a la UI.
   Future<Fresh<List<Persona>>> listar({
@@ -26,13 +26,18 @@ class PersonasRepository {
     String? busqueda,
     int limite = 50,
   }) async {
-    var q = _db.from(_tabla).select().eq('pais', paisCodigo);
+    var q = _db.from(_tabla).select().eq('country', paisCodigo);
 
-    if (estado != null) q = q.eq('estado', estado.wire);
-    if (soloMenores) q = q.lte('edad', 11);
+    // `status` es el estado de búsqueda; `estado` en esta tabla es la región
+    // geográfica — no confundir (ver 06-correcciones-y-reparto.md §Parte 1).
+    if (estado != null) q = q.eq('status', estado.wire);
+    if (soloMenores) q = q.lte('age', 11);
     if (busqueda != null && busqueda.trim().isNotEmpty) {
       final t = busqueda.trim();
-      q = q.or('nombre.ilike.%$t%,documento.ilike.%$t%,ubicacion.ilike.%$t%');
+      q = q.or(
+        'first_name.ilike.%$t%,last_name.ilike.%$t%,cedula.ilike.%$t%,'
+        'location_text.ilike.%$t%',
+      );
     }
 
     final rows = await q.order('updated_at', ascending: false).limit(limite);
@@ -55,7 +60,7 @@ class PersonasRepository {
     return _db
         .from(_tabla)
         .stream(primaryKey: ['id'])
-        .eq('pais', paisCodigo)
+        .eq('country', paisCodigo)
         .order('updated_at')
         .map((rows) => rows.map(Persona.fromMap).toList(growable: false));
   }

@@ -72,9 +72,11 @@ class MapaScreen extends ConsumerWidget {
                 MarkerLayer(
                   markers: [
                     for (final p in puntos.valueOrNull?.data ?? const <PuntoAyuda>[])
-                      if (capas.contains(p.tipo))
+                      // `lat`/`lng` son nullable: muchos puntos solo tienen
+                      // `direccion` en texto libre, sin coordenadas todavia.
+                      if (capas.contains(p.tipo) && p.lat != null && p.lng != null)
                         Marker(
-                          point: LatLng(p.lat, p.lon),
+                          point: LatLng(p.lat!, p.lng!),
                           width: 40,
                           height: 40,
                           child: _Pin(punto: p),
