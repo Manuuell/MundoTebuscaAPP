@@ -55,3 +55,6 @@ build/
 # Llaves: entran por --dart-define, nunca versionadas
 .env
 *.env
+
+# Credenciales locales: NUNCA se versionan (el repo es publico)
+env.local.json

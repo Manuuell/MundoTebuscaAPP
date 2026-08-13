@@ -6,11 +6,34 @@ personas y ayuda ante emergencias. Implementa la arquitectura acordada en
 
 ## Arrancar
 
-Las llaves entran por `--dart-define`, no van versionadas:
+Copia `env.example.json` a `env.local.json` y rellena los dos valores.
+`env.local.json` está en `.gitignore` y **nunca** se versiona — este repo es
+público.
 
 ```bash
-flutter run --dart-define=SUPABASE_URL=https://xxxx.supabase.co --dart-define=SUPABASE_ANON_KEY=eyJhbGci...
+cp env.example.json env.local.json   # y editar
+flutter run --dart-define-from-file=env.local.json
 ```
+
+### De dónde salen esas credenciales
+
+Del `.env` del sitio web, en el VPS: `/var/www/elmundotebusca/.env`.
+
+**Solo se copian las dos `NEXT_PUBLIC_*`** (`NEXT_PUBLIC_SUPABASE_URL` y
+`NEXT_PUBLIC_SUPABASE_ANON_KEY`). Son públicas por diseño: ya viajan en el
+bundle del sitio y van protegidas por las políticas RLS.
+
+Todo lo demás de ese archivo es secreto de servidor y **no puede entrar en la
+app bajo ningún concepto** — un APK o un IPA son archivos que cualquiera
+descomprime y de los que se extraen cadenas en segundos. En particular
+`SUPABASE_SERVICE_ROLE_KEY` **se salta todas las políticas RLS**: filtrarla
+equivale a entregar la base de datos completa, con permiso de escritura y
+borrado, a quien instale la app. Los otros seis (`TURNSTILE_SECRET_KEY`,
+`ADMIN_TOKEN`, `BLUESKY_APP_PASSWORD`, `OPENAI_API_KEY`, `CRON_SECRET`,
+`GNEWS_API_KEY`) tampoco.
+
+Si la app llega a necesitar algo que hoy requiere un secreto, la salida es la
+Edge Function de escritura segura, no meter la llave en el cliente.
 
 Sin llaves la app **arranca igual**, con las pantallas en su estado de error.
 Es a propósito: se puede navegar toda la UI sin backend, y en producción un
