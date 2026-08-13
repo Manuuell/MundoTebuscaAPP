@@ -9,6 +9,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/util/freshness.dart';
 import '../../models/persona.dart';
 import '../../repositories/personas_repository.dart';
+import '../../widgets/floating_tab_bar.dart';
 import '../../widgets/mt_card.dart';
 import '../../widgets/mt_search_bar.dart';
 import 'widgets/baraja_reconoces.dart';
@@ -39,24 +40,108 @@ class FiltroPersonas {
 final filtroPersonasProvider =
     StateProvider<FiltroPersonas>((ref) => const FiltroPersonas());
 
-/// Cuántas fichas por página. 10 por defecto, igual que `PAGE_SIZE` en la web.
-final porPaginaProvider = StateProvider<int>((ref) => 10);
+/// Lo cargado hasta ahora en la lista.
+class PaginaPersonas {
+  const PaginaPersonas({
+    required this.personas,
+    required this.traidoEn,
+    this.cargandoMas = false,
+    this.hayMas = true,
+  });
 
-final personasProvider = FutureProvider<Fresh<List<Persona>>>((ref) async {
-  final pais = ref.watch(paisProvider);
-  final f = ref.watch(filtroPersonasProvider);
-  final porPagina = ref.watch(porPaginaProvider);
-  return ref.watch(personasRepositoryProvider).listar(
-        paisCodigo: pais.codigo,
-        estado: f.estado,
-        soloMenores: f.soloMenores,
-        busqueda: f.busqueda,
-        limite: porPagina,
-        // La lista muestra a quien se busca; las fichas sin identificar tienen
-        // su propia vista.
-        soloNoIdentificadas: false,
+  final List<Persona> personas;
+  final DateTime traidoEn;
+  final bool cargandoMas;
+  final bool hayMas;
+
+  PaginaPersonas copyWith({
+    List<Persona>? personas,
+    bool? cargandoMas,
+    bool? hayMas,
+  }) =>
+      PaginaPersonas(
+        personas: personas ?? this.personas,
+        traidoEn: traidoEn,
+        cargandoMas: cargandoMas ?? this.cargandoMas,
+        hayMas: hayMas ?? this.hayMas,
       );
-});
+}
+
+/// Lista con carga por scroll.
+///
+/// Sustituye al paginado por tamano fijo. Con 5.291 fichas en Colombia, elegir
+/// "10 / 20 / 50" obliga a decidir algo que a nadie le importa; buscar a un
+/// familiar es desplazarse hasta encontrarlo. Se piden tandas de 30 y se
+/// acumulan.
+class PersonasNotifier extends Notifier<AsyncValue<PaginaPersonas>> {
+  static const _tanda = 30;
+
+  @override
+  AsyncValue<PaginaPersonas> build() {
+    // Cambiar de pais o de filtro reinicia la lista: mezclar resultados de dos
+    // busquedas distintas seria peor que recargar.
+    ref.watch(paisProvider);
+    ref.watch(filtroPersonasProvider);
+    Future.microtask(recargar);
+    return const AsyncValue.loading();
+  }
+
+  Future<void> recargar() async {
+    state = const AsyncValue.loading();
+    try {
+      final lote = await _traer(desde: 0);
+      state = AsyncValue.data(PaginaPersonas(
+        personas: lote,
+        traidoEn: DateTime.now(),
+        hayMas: lote.length == _tanda,
+      ));
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
+  Future<void> cargarMas() async {
+    final actual = state.valueOrNull;
+    if (actual == null || actual.cargandoMas || !actual.hayMas) return;
+
+    state = AsyncValue.data(actual.copyWith(cargandoMas: true));
+    try {
+      final lote = await _traer(desde: actual.personas.length);
+      state = AsyncValue.data(actual.copyWith(
+        personas: [...actual.personas, ...lote],
+        cargandoMas: false,
+        hayMas: lote.length == _tanda,
+      ));
+    } catch (_) {
+      // Un lote que falla no borra lo ya cargado: se corta la carga y quien
+      // mira conserva lo que tenia.
+      state = AsyncValue.data(actual.copyWith(cargandoMas: false));
+    }
+  }
+
+  Future<List<Persona>> _traer({required int desde}) {
+    final pais = ref.read(paisProvider);
+    final f = ref.read(filtroPersonasProvider);
+    return ref
+        .read(personasRepositoryProvider)
+        .listar(
+          paisCodigo: pais.codigo,
+          estado: f.estado,
+          soloMenores: f.soloMenores,
+          busqueda: f.busqueda,
+          limite: _tanda,
+          desde: desde,
+          // La lista muestra a quien se busca; las fichas sin identificar
+          // tienen su propia vista.
+          soloNoIdentificadas: false,
+        )
+        .then((fresh) => fresh.data);
+  }
+}
+
+final personasProvider =
+    NotifierProvider<PersonasNotifier, AsyncValue<PaginaPersonas>>(
+        PersonasNotifier.new);
 
 /// Fichas de la baraja.
 ///
@@ -155,13 +240,23 @@ class _SeBuscaScreenState extends ConsumerState<SeBuscaScreen> {
       // Se abre alli en vez de ofrecer un formulario que no puede enviar: en
       // esta pantalla, creer que publicaste a un familiar y que no se haya
       // guardado es el peor fallo posible.
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _publicarPersona(context),
-        backgroundColor: AppColors.brand500,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.person_add_alt_rounded, size: 20),
-        label: const Text('Publicar persona'),
-      ),
+      // Solo en la lista: en la baraja el pulgar esta justo encima de los
+      // botones de decidir, y ahi un boton mas es un toque equivocado.
+      floatingActionButton: _baraja
+          ? null
+          : Padding(
+              // Sube por encima de la tab bar flotante, que si no lo tapa.
+              padding: EdgeInsets.only(
+                  bottom: FloatingTabBar.alturaOcupada - 12),
+              child: FloatingActionButton.extended(
+                heroTag: 'publicar-persona',
+                onPressed: () => _publicarPersona(context),
+                backgroundColor: AppColors.brand500,
+                foregroundColor: Colors.white,
+                icon: const Icon(Icons.person_add_alt_rounded, size: 20),
+                label: const Text('Publicar persona'),
+              ),
+            ),
       body: Column(
         children: [
           Padding(
@@ -169,7 +264,6 @@ class _SeBuscaScreenState extends ConsumerState<SeBuscaScreen> {
             child: Consumer(
               builder: (context, ref, _) {
                 final filtro = ref.watch(filtroPersonasProvider);
-                final porPagina = ref.watch(porPaginaProvider);
                 final activos = (filtro.estado != null ? 1 : 0) +
                     (filtro.soloMenores ? 1 : 0);
 
@@ -189,13 +283,7 @@ class _SeBuscaScreenState extends ConsumerState<SeBuscaScreen> {
                   onSubmitted: (v) => ref
                       .read(filtroPersonasProvider.notifier)
                       .update((f) => f.copyWith(busqueda: v)),
-                  trailing: _baraja
-                      ? null
-                      : MTPaginationButton(
-                          porPagina: porPagina,
-                          onChanged: (n) =>
-                              ref.read(porPaginaProvider.notifier).state = n,
-                        ),
+
                 );
               },
             ),
@@ -348,42 +436,63 @@ class _VistaLista extends ConsumerWidget {
               detalle: 'Revisa tu conexion e intentalo de nuevo.',
               alReintentar: () => ref.invalidate(personasProvider),
             ),
-            data: (fresh) {
-              if (fresh.data.isEmpty) {
+            data: (pagina) {
+              if (pagina.personas.isEmpty) {
                 return _Mensaje(
                   icono: Icons.search_off_rounded,
                   titulo: 'Sin resultados',
                   detalle: 'No hay personas que coincidan con este filtro.',
-                  alReintentar: () => ref.invalidate(personasProvider),
+                  alReintentar: () =>
+                      ref.read(personasProvider.notifier).recargar(),
                 );
               }
+
+              final notifier = ref.read(personasProvider.notifier);
+
               return Column(
                 children: [
                   StaleDataBanner(
-                    fetchedAt: fresh.fetchedAt,
-                    onRefresh: () => ref.invalidate(personasProvider),
+                    fetchedAt: pagina.traidoEn,
+                    onRefresh: notifier.recargar,
                   ),
                   Expanded(
                     child: RefreshIndicator(
-                      onRefresh: () async => ref.invalidate(personasProvider),
-                      child: ListView.separated(
-                        padding: EdgeInsets.fromLTRB(
-                          16,
-                          10,
-                          16,
-                          MediaQuery.paddingOf(context).bottom + 16,
-                        ),
-                        itemCount: fresh.data.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 10),
-                        itemBuilder: (context, i) => MTEntrada(
-                          indice: i,
-                          child: PersonaTile(
-                            persona: fresh.data[i],
-                            // go_router, no Navigator: con pushNamed la ruta
-                            // no existe y la ficha no abre.
-                            onTap: () => context.push(
-                                '${Rutas.persona}/${fresh.data[i].id}'),
+                      onRefresh: notifier.recargar,
+                      // Se pide la siguiente tanda antes de llegar al final,
+                      // para que el scroll no se pare a esperar.
+                      child: NotificationListener<ScrollNotification>(
+                        onNotification: (n) {
+                          if (n.metrics.pixels >=
+                              n.metrics.maxScrollExtent - 600) {
+                            notifier.cargarMas();
+                          }
+                          return false;
+                        },
+                        child: ListView.separated(
+                          padding: EdgeInsets.fromLTRB(
+                            16,
+                            10,
+                            16,
+                            MediaQuery.paddingOf(context).bottom + 16,
                           ),
+                          itemCount: pagina.personas.length + 1,
+                          separatorBuilder: (_, _) =>
+                              const SizedBox(height: 10),
+                          itemBuilder: (context, i) {
+                            if (i == pagina.personas.length) {
+                              return _PieLista(pagina: pagina);
+                            }
+                            return MTEntrada(
+                              // La cascada solo en la primera tanda: al cargar
+                              // mas, animar de nuevo lo ya visto marea.
+                              indice: i < 8 ? i : 8,
+                              child: PersonaTile(
+                                persona: pagina.personas[i],
+                                onTap: () => context.push(
+                                    '${Rutas.persona}/${pagina.personas[i].id}'),
+                              ),
+                            );
+                          },
                         ),
                       ),
                     ),
@@ -490,6 +599,43 @@ class _VistaBaraja extends ConsumerWidget {
         ),
       ),
     );
+  }
+}
+
+/// Pie de la lista: hilandera mientras carga la siguiente tanda, o el aviso de
+/// que ya no hay mas. Sin esto, llegar al final se siente como si la app se
+/// hubiera quedado colgada.
+class _PieLista extends StatelessWidget {
+  const _PieLista({required this.pagina});
+
+  final PaginaPersonas pagina;
+
+  @override
+  Widget build(BuildContext context) {
+    if (pagina.cargandoMas) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 24),
+        child: Center(
+          child: SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(strokeWidth: 2.4),
+          ),
+        ),
+      );
+    }
+    if (!pagina.hayMas) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        child: Center(
+          child: Text(
+            '${pagina.personas.length} personas · no hay mas resultados',
+            style: const TextStyle(fontSize: 12.5, color: AppColors.muted),
+          ),
+        ),
+      );
+    }
+    return const SizedBox(height: 24);
   }
 }
 

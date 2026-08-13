@@ -25,6 +25,7 @@ class PersonasRepository {
     bool soloMenores = false,
     String? busqueda,
     int limite = 50,
+    int desde = 0,
     bool? soloNoIdentificadas,
   }) async {
     var q = _db.from(_tabla).select().eq('country', paisCodigo);
@@ -48,7 +49,11 @@ class PersonasRepository {
       );
     }
 
-    final rows = await q.order('updated_at', ascending: false).limit(limite);
+    // `range` en vez de `limit` para poder pedir la siguiente tanda al hacer
+    // scroll sin volver a traer lo ya cargado.
+    final rows = await q
+        .order('updated_at', ascending: false)
+        .range(desde, desde + limite - 1);
 
     return Fresh.now(
       rows.map((r) => Persona.fromMap(r)).toList(growable: false),
