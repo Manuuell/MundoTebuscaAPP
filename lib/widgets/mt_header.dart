@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../core/theme/app_colors.dart';
 import '../features/cuenta/login_screen.dart';
 import '../repositories/auth_repository.dart';
+import '../core/router/app_router.dart';
 import 'guia_rapida_sheet.dart';
 import 'mt_card.dart' show Press;
 
@@ -66,9 +68,20 @@ class MTHeader extends ConsumerWidget implements PreferredSizeWidget {
         Press(
           onTap: () => mostrarGuiaRapida(context),
           child: const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+            padding: EdgeInsets.symmetric(horizontal: 6, vertical: 12),
             child: Icon(Icons.help_outline_rounded,
                 color: AppColors.muted, size: 24),
+          ),
+        ),
+        Press(
+          onTap: () => context.push(Rutas.asistente),
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
+            padding: const EdgeInsets.all(5),
+            decoration: const BoxDecoration(
+                color: AppColors.brand50, shape: BoxShape.circle),
+            child: const Icon(Icons.smart_toy_rounded,
+                size: 19, color: AppColors.brand700),
           ),
         ),
         if (usuario == null)

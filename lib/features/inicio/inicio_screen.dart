@@ -9,9 +9,8 @@ import '../../models/pais.dart';
 import '../../models/persona.dart';
 import '../../widgets/cifra_chip.dart';
 import '../../widgets/mt_header.dart';
-import '../../widgets/pais_switcher.dart';
-import '../../widgets/mt_card.dart' show Press;
-import '../shell/home_shell.dart';
+import '../../core/theme/elevation.dart';
+import '../../widgets/mt_card.dart';
 import 'cifras_providers.dart';
 import '../../repositories/noticias_repository.dart';
 import 'noticias_carrusel.dart';
@@ -31,18 +30,7 @@ class InicioScreen extends ConsumerWidget {
     final panel = ref.watch(cifrasPanelProvider);
 
     return Scaffold(
-      appBar: MTHeader(
-        acciones: [
-          Press(
-            onTap: () => mostrarHojaMas(context),
-            child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-              child: Icon(Icons.more_horiz_rounded,
-                  color: AppColors.muted, size: 24),
-            ),
-          ),
-        ],
-      ),
+      appBar: const MTHeader(),
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(cifrasPanelProvider);
@@ -52,10 +40,6 @@ class InicioScreen extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           children: [
-            const Padding(
-              padding: EdgeInsets.only(bottom: 10),
-              child: PaisSwitcher(),
-            ),
             _Hero(pais: pais),
             const SizedBox(height: 20),
             const _CifrasSismoBloque(),
@@ -80,100 +64,245 @@ class _Hero extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = Theme.of(context).textTheme;
-    final panel = ref.watch(cifrasPanelProvider);
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Cuando el mundo se detiene,', style: t.headlineLarge),
-            Text(
-              'la solidaridad nos encuentra.',
-              style: t.headlineLarge?.copyWith(color: AppColors.brand500),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Plataforma ciudadana de ayuda y busqueda ante emergencias. '
-              'Activa ahora para ${pais.nombre}.',
-              style: t.bodyMedium?.copyWith(color: AppColors.muted),
-            ),
-            const SizedBox(height: 18),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(MTCard.radio),
+        // Borde marcado en navy, como el sitio. Es la excepcion a la regla de
+        // "borde sutil + sombra": aqui el borde ES el recurso visual, asi que
+        // la sombra baja a nivel 0 para no recargar.
+        border: Border.all(color: AppColors.navy700, width: 1.6),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        children: [
+          // Circulos decorativos que asoman por las esquinas, recortados por
+          // el clip de la tarjeta.
+          Positioned(
+            right: -46,
+            top: -54,
+            child: _Circulo(
+                lado: 168, color: AppColors.brand500.withValues(alpha: 0.22)),
+          ),
+          Positioned(
+            right: -30,
+            top: 128,
+            child: _Circulo(
+                lado: 128, color: AppColors.navy700.withValues(alpha: 0.05)),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                const _SelectorPais(),
+                const SizedBox(height: 18),
+                RichText(
+                  text: TextSpan(
+                    style: t.headlineLarge,
+                    children: [
+                      const TextSpan(text: 'Cuando el mundo se detiene, '),
+                      TextSpan(
+                        text: 'la solidaridad nos encuentra.',
+                        style: TextStyle(color: AppColors.brand500),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Plataforma ciudadana de ayuda y busqueda ante emergencias '
+                  'en cualquier parte del mundo. Activa ahora para '
+                  '${pais.nombre}.',
+                  style: t.bodyMedium?.copyWith(color: AppColors.muted),
+                ),
+                const SizedBox(height: 18),
                 FilledButton(
                   onPressed: () => context.push(Rutas.ayuda),
-                  child: const Text('Como puedo ayudar'),
+                  child: const Text('¿Como puedo ayudar?'),
                 ),
-                OutlinedButton.icon(
-                  // En movil esto NO navega a una pantalla nueva: cambia al
-                  // tab Mapa, que ya existe. Apilar una ruta encima de un tab
-                  // duplicado deja al usuario con dos mapas en la pila.
+                const SizedBox(height: 10),
+                OutlinedButton(
                   onPressed: () => StatefulNavigationShell.of(context)
                       .goBranch(3, initialLocation: true),
-                  icon: const Icon(Icons.circle, size: 10, color: AppColors.danger500),
-                  label: const Text('Ver mapa EN VIVO'),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('Ver mapa EN VIVO'),
+                      SizedBox(width: 8),
+                      Icon(Icons.circle, size: 9, color: AppColors.danger500),
+                    ],
+                  ),
                 ),
+                const SizedBox(height: 20),
+                const _PanelCifras(),
               ],
             ),
-            const SizedBox(height: 20),
-            const Divider(),
-            const SizedBox(height: 14),
-            Text('JUNTOS SOMOS MAS FUERTES',
-                style: t.labelSmall?.copyWith(
-                  color: AppColors.muted,
-                  letterSpacing: 1.1,
-                  fontWeight: FontWeight.w700,
-                )),
-            const SizedBox(height: 12),
-            panel.when(
-              loading: () => const _CargandoCifras(filas: 4),
-              error: (e, _) => const _SinDatos(),
-              data: (fresh) {
-                final c = fresh.data;
-                return Column(
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Circulo extends StatelessWidget {
+  const _Circulo({required this.lado, required this.color});
+
+  final double lado;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: lado,
+        height: lado,
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      );
+}
+
+/// Dos pastillas, no un desplegable: con dos emergencias activas se ve de un
+/// vistazo cual esta puesta y cual es la otra.
+class _SelectorPais extends ConsumerWidget {
+  const _SelectorPais();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final actual = ref.watch(paisProvider);
+
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final p in paisesSemilla)
+            Press(
+              onTap: () => ref.read(paisProvider.notifier).cambiar(p),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                curve: MTMotion.easeIOS,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: p.codigo == actual.codigo
+                      ? AppColors.navy700
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    _FilaHero('Personas buscadas', c.personasBuscadas),
-                    _FilaHero('Reportes verificados', c.reportesVerificados),
-                    _FilaHero('Voluntarios activos', c.voluntariosActivos),
-                    _FilaHero('Puntos de ayuda', c.puntosAyuda),
+                    Text(p.bandera, style: const TextStyle(fontSize: 17)),
+                    if (p.codigo == actual.codigo) ...[
+                      const SizedBox(width: 7),
+                      Text(p.nombre,
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14)),
+                    ],
                   ],
-                );
-              },
+                ),
+              ),
             ),
-          ],
-        ),
+        ],
+      ),
+    );
+  }
+}
+
+/// "Juntos somos mas fuertes": cada cifra con su icono en circulo.
+class _PanelCifras extends ConsumerWidget {
+  const _PanelCifras();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final panel = ref.watch(cifrasPanelProvider);
+    final t = Theme.of(context).textTheme;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('JUNTOS SOMOS MAS FUERTES',
+              style: t.labelSmall?.copyWith(
+                color: AppColors.navy700,
+                letterSpacing: 0.9,
+                fontWeight: FontWeight.w800,
+              )),
+          const SizedBox(height: 12),
+          panel.when(
+            loading: () => const _CargandoCifras(filas: 4),
+            error: (e, _) => const _SinDatos(),
+            data: (fresh) {
+              final c = fresh.data;
+              return Column(
+                children: [
+                  _FilaHero('Personas buscadas', c.personasBuscadas,
+                      Icons.people_alt_rounded, AppColors.info500),
+                  _FilaHero('Reportes verificados', c.reportesVerificados,
+                      Icons.verified_user_rounded, AppColors.success500),
+                  _FilaHero('Voluntarios activos', c.voluntariosActivos,
+                      Icons.volunteer_activism_rounded, const Color(0xFF8B5CF6)),
+                  _FilaHero('Puntos de ayuda', c.puntosAyuda,
+                      Icons.place_rounded, AppColors.brand500),
+                ],
+              );
+            },
+          ),
+        ],
       ),
     );
   }
 }
 
 class _FilaHero extends StatelessWidget {
-  const _FilaHero(this.etiqueta, this.valor);
+  const _FilaHero(this.etiqueta, this.valor, this.icono, this.color);
 
   final String etiqueta;
   final int valor;
+  final IconData icono;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
+    // Miles con punto, como la web: "5.280" se lee de un vistazo y "5280" no.
+    final seguro = valor < 0 ? 0 : valor;
+    final texto = seguro.toString().replaceAllMapped(
+        RegExp(r'(\d)(?=(\d{3})+$)'), (m) => '${m[1]}.');
+
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         children: [
-          Text(
-            '${valor < 0 ? 0 : valor}',
-            style: Theme.of(context)
-                .textTheme
-                .headlineMedium
-                ?.copyWith(fontWeight: FontWeight.w700),
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12), shape: BoxShape.circle),
+            child: Icon(icono, size: 19, color: color),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(etiqueta,
-                style: const TextStyle(color: AppColors.muted)),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(texto,
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.w800, height: 1.05)),
+              Text(etiqueta,
+                  style: const TextStyle(
+                      fontSize: 13, color: AppColors.muted)),
+            ],
           ),
         ],
       ),

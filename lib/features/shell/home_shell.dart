@@ -66,6 +66,12 @@ class HomeShell extends StatelessWidget {
           ),
           FloatingTabBar(
             items: _tabs,
+            accionFinal: (
+              icono: Icons.menu_rounded,
+              iconoActivo: Icons.menu_rounded,
+              etiqueta: 'Mas'
+            ),
+            alTocarAccion: () => mostrarHojaMas(context),
             indiceActual: shell.currentIndex,
             alTocar: (i) => shell.goBranch(
               i,

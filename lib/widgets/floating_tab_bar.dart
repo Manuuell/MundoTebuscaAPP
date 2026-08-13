@@ -26,11 +26,18 @@ class FloatingTabBar extends StatelessWidget {
     required this.items,
     required this.indiceActual,
     required this.alTocar,
+    this.accionFinal,
+    this.alTocarAccion,
   });
 
   final List<ItemTab> items;
   final int indiceActual;
   final ValueChanged<int> alTocar;
+
+  /// Item que no abre una rama sino una hoja — el menu "Mas". Va al final,
+  /// como en la web.
+  final ItemTab? accionFinal;
+  final VoidCallback? alTocarAccion;
 
   /// Alto de la capsula mas su margen inferior. Las listas necesitan este
   /// hueco al final o la ultima tarjeta queda debajo de la barra.
@@ -70,6 +77,16 @@ class FloatingTabBar extends StatelessWidget {
                       item: items[i],
                       activo: i == indiceActual,
                       alTocar: () => alTocar(i),
+                    ),
+                  ),
+                if (accionFinal != null)
+                  Expanded(
+                    child: _Item(
+                      item: accionFinal!,
+                      // Nunca se marca activo: abre una hoja, no cambia de
+                      // seccion, y pintarlo activo mentiria sobre donde estas.
+                      activo: false,
+                      alTocar: alTocarAccion ?? () {},
                     ),
                   ),
               ],
