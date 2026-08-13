@@ -11,11 +11,15 @@ No repite nada de `01-05` (arquitectura, contenido/navegación, roadmap, tema
 visual, fuente web) — ya están decididos, léanlos si no lo han hecho.
 
 **Investigación técnica de apoyo**: [`investigacion-tecnica/`](investigacion-tecnica/)
-tiene 8 documentos a fondo (con research web + verificación contra el código
+tiene 9 documentos a fondo (con research web + verificación contra el código
 real) sobre todo lo que faltaba resolver técnicamente — Edge Function de
 escritura segura, deep linking real, mapa con `flutter_map`, estado/Riverpod,
 fotos/push, sistema visual/accesibilidad, testing/distribución para demostrar
-la app HOY, y multi-país en Dart. El índice de ahí dice cuál le toca a
+la app HOY, multi-país en Dart, y diseño tipo iOS (tab bar flotante,
+profundidad, animaciones, guía rápida offline —
+[`investigacion-tecnica/09-diseno-ios.md`](investigacion-tecnica/09-diseno-ios.md),
+compartido por las 3 personas ya que toca widgets base como `MTCard`/
+`MTElevation` que todos van a usar). El índice de ahí dice cuál le toca a
 quién.
 
 ---
