@@ -1,5 +1,20 @@
 # 10. "¿Estás bien?" — check-in automático y compartir ubicación tras un sismo
 
+> **Estado (2026-08-13):** implementado el MVP del §7.1 salvo el cron de
+> USGS. En el repo web: tablas `safety_optins`/`safety_checkins` en
+> `supabase/schema.sql` (sin política pública, service role únicamente) y la
+> Edge Function `supabase/functions/safety-optin` (`activate`, `deactivate`,
+> `update-location`, `respond`, y `test-alert` para poder probar el flujo
+> completo sin esperar un sismo real). En este repo: interruptor "Red de
+> auxilio" en `configuracion_screen.dart` (permiso + ubicación +
+> consentimiento visible), `SafetyRepository` (`lib/repositories/safety_repository.dart`)
+> y actualización oportunista de ubicación al abrir/reanudar la app
+> (`app.dart`). **Falta desplegar** la función (`supabase functions deploy
+> safety-optin`) y aplicar el SQL nuevo contra el proyecto real antes de que
+> el interruptor funcione de punta a punta. Pendiente de una sesión aparte:
+> el cron de USGS que detecta sismos y dispara el push real (§3-§5) — hoy el
+> único disparador es `test-alert`, manual.
+
 Idea de Angel: un interruptor en **Ajustes** (activo/inactivo, con permisos y
 persistencia) para que, si la app detecta que la persona estuvo cerca de un
 sismo real, le pregunte si está bien — y si no responde, o responde que no,

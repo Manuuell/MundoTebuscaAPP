@@ -6,8 +6,10 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/state/pais_provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../repositories/auth_repository.dart';
+import '../../repositories/safety_repository.dart';
 import '../../widgets/mt_header.dart' show MarcaLockup;
 import 'login_screen.dart';
+import 'red_auxilio_provider.dart';
 
 final _versionProvider = FutureProvider<String>((ref) async {
   final info = await PackageInfo.fromPlatform();
@@ -180,6 +182,10 @@ class ConfiguracionScreen extends ConsumerWidget {
             ),
           ),
 
+          // ── Red de auxilio ──────────────────────────────────────────
+          _Seccion(titulo: 'Red de auxilio'),
+          _Tarjeta(child: _RedAuxilioSeccion(paisCodigo: pais.codigo)),
+
           // ── Acerca de ───────────────────────────────────────────────
           _Seccion(titulo: 'Acerca de'),
           _Tarjeta(
@@ -249,6 +255,100 @@ class _Tarjeta extends StatelessWidget {
           child: child,
         ),
       );
+}
+
+/// Interruptor de "¿Estas bien?" tras un sismo.
+///
+/// Ver plan-app-movil/investigacion-tecnica/10-alerta-sismo-checkin.md. La
+/// regla clave va en el propio texto de consentimiento: si no respondes o
+/// dices que necesitas ayuda, la ubicacion se comparte — eso hay que saberlo
+/// ANTES de activarlo, no despues.
+class _RedAuxilioSeccion extends ConsumerWidget {
+  const _RedAuxilioSeccion({required this.paisCodigo});
+
+  final String paisCodigo;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final estado = ref.watch(redAuxilioProvider);
+    final notifier = ref.read(redAuxilioProvider.notifier);
+    final activa = estado.fase == RedAuxilioFase.activa;
+    final cargando = estado.fase == RedAuxilioFase.cargando;
+
+    ref.listen(redAuxilioProvider, (anterior, actual) {
+      if (actual.error != null && actual.error != anterior?.error) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_mensajeError(actual.error!))),
+        );
+      }
+    });
+
+    return Column(
+      children: [
+        SwitchListTile(
+          value: activa,
+          onChanged: cargando || estado.ocupado
+              ? null
+              : (encender) => encender
+                  ? notifier.activar(paisCodigo)
+                  : notifier.desactivar(),
+          secondary: estado.ocupado
+              ? const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2.4),
+                )
+              : Icon(
+                  Icons.shield_moon_rounded,
+                  color: activa ? AppColors.brand700 : AppColors.muted,
+                ),
+          title: const Text('Avisar si estoy cerca de un sismo'),
+          subtitle: const Text(
+            'Si hay un sismo cerca de ti, te preguntamos si estas bien. Si no '
+            'respondes o necesitas ayuda, tu ubicacion se comparte con '
+            'voluntarios y rescatistas de la app cerca de ti. Puedes '
+            'desactivarlo cuando quieras.',
+            style: TextStyle(fontSize: 12.5, color: AppColors.muted),
+          ),
+        ),
+        if (activa) ...[
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Icons.bolt_rounded, color: AppColors.warning500),
+            title: const Text('Probar el aviso ahora'),
+            subtitle: const Text(
+              'Simula un sismo cercano sin esperar a uno real, para revisar '
+              'el flujo completo.',
+              style: TextStyle(fontSize: 12.5),
+            ),
+            onTap: () async {
+              final mensajero = ScaffoldMessenger.of(context);
+              try {
+                await ref.read(safetyRepositoryProvider).probarAlerta();
+                mensajero.showSnackBar(const SnackBar(
+                  content: Text('Aviso de prueba enviado.'),
+                ));
+              } catch (_) {
+                mensajero.showSnackBar(const SnackBar(
+                  content: Text('No se pudo enviar el aviso de prueba.'),
+                ));
+              }
+            },
+          ),
+        ],
+      ],
+    );
+  }
+
+  static String _mensajeError(SafetyError error) => switch (error) {
+        SafetyError.locationDenied =>
+          'Necesitamos permiso de ubicacion para activarlo. Revisalo en '
+              'Ajustes del sistema.',
+        SafetyError.locationServiceOff =>
+          'Activa el GPS del telefono para poder usar la red de auxilio.',
+        SafetyError.network => 'No se pudo conectar. Intenta de nuevo.',
+        SafetyError.notOptedIn => 'Primero activa el interruptor.',
+      };
 }
 
 class _Dato extends StatelessWidget {
