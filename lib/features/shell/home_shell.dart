@@ -90,6 +90,17 @@ Future<void> mostrarHojaMas(BuildContext context) {
         mainAxisSize: MainAxisSize.min,
         children: [
           ListTile(
+            leading: const Icon(Icons.smart_toy_rounded,
+                color: AppColors.brand500),
+            title: const Text('Asistente'),
+            subtitle: const Text('Pregunta sobre la emergencia o la app'),
+            onTap: () {
+              Navigator.pop(sheetContext);
+              context.push(Rutas.asistente);
+            },
+          ),
+          const Divider(height: 1),
+          ListTile(
             leading: const Icon(Icons.local_hospital_outlined,
                 color: AppColors.brand700),
             title: const Text('Ayuda y hospitales'),
