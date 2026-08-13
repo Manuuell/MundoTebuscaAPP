@@ -189,10 +189,69 @@ class PerfilScreen extends ConsumerWidget {
                       ],
                     ),
                   ),
+                  const SizedBox(height: 16),
+                  MTCard(
+                    padding: EdgeInsets.zero,
+                    clip: true,
+                    child: ListTile(
+                      leading: const Icon(Icons.logout_rounded,
+                          color: AppColors.danger500),
+                      title: const Text('Cerrar sesion',
+                          style: TextStyle(
+                              color: AppColors.danger500,
+                              fontWeight: FontWeight.w600)),
+                      onTap: () => cerrarSesion(context, ref),
+                    ),
+                  ),
                 ],
               ),
             ),
     );
+  }
+}
+
+/// Cierra la sesion, preguntando antes.
+///
+/// Se confirma porque volver a entrar exige la contrasena, y en una emergencia
+/// puede que quien use el telefono no la recuerde — un toque accidental no
+/// deberia dejar a nadie fuera de su cuenta.
+Future<void> cerrarSesion(BuildContext context, WidgetRef ref) async {
+  final salir = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('¿Cerrar sesion?'),
+      content: const Text(
+        'Para volver a entrar necesitaras tu usuario y contrasena. '
+        'Podras seguir consultando la app sin sesion.',
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar')),
+        FilledButton(
+          style: FilledButton.styleFrom(backgroundColor: AppColors.danger500),
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text('Cerrar sesion'),
+        ),
+      ],
+    ),
+  );
+
+  if (salir != true) return;
+
+  await ref.read(authRepositoryProvider).salir();
+  ref.invalidate(perfilProvider);
+
+  if (context.mounted) {
+    // Se vuelve atras: quedarse en "Mi perfil" sin sesion deja al usuario
+    // mirando un estado vacio sin entender que paso.
+    Navigator.of(context).maybePop();
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(const SnackBar(
+        content: Text('Sesion cerrada.'),
+        behavior: SnackBarBehavior.floating,
+      ));
   }
 }
 

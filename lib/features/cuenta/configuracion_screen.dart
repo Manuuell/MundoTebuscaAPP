@@ -161,10 +161,7 @@ class ConfiguracionScreen extends ConsumerWidget {
                         color: AppColors.danger500),
                     title: const Text('Cerrar sesion',
                         style: TextStyle(color: AppColors.danger500)),
-                    onTap: () async {
-                      await ref.read(authRepositoryProvider).salir();
-                      ref.invalidate(perfilProvider);
-                    },
+                    onTap: () => cerrarSesion(context, ref),
                   ),
                 ],
               ),
