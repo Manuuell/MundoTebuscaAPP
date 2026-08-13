@@ -66,6 +66,12 @@ class HomeShell extends StatelessWidget {
           ),
           FloatingTabBar(
             items: _tabs,
+            accionFinal: (
+              icono: Icons.menu_rounded,
+              iconoActivo: Icons.menu_rounded,
+              etiqueta: 'Mas'
+            ),
+            alTocarAccion: () => mostrarHojaMas(context),
             indiceActual: shell.currentIndex,
             alTocar: (i) => shell.goBranch(
               i,
@@ -89,6 +95,28 @@ Future<void> mostrarHojaMas(BuildContext context) {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          ListTile(
+            leading: const Icon(Icons.person_outline_rounded,
+                color: AppColors.brand700),
+            title: const Text('Mi perfil'),
+            subtitle: const Text('Tu foto y tu actividad'),
+            onTap: () {
+              Navigator.pop(sheetContext);
+              context.push(Rutas.perfil);
+            },
+          ),
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Icons.smart_toy_rounded,
+                color: AppColors.brand500),
+            title: const Text('Asistente'),
+            subtitle: const Text('Pregunta sobre la emergencia o la app'),
+            onTap: () {
+              Navigator.pop(sheetContext);
+              context.push(Rutas.asistente);
+            },
+          ),
+          const Divider(height: 1),
           ListTile(
             leading: const Icon(Icons.local_hospital_outlined,
                 color: AppColors.brand700),

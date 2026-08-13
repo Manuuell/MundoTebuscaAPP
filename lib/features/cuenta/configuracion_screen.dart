@@ -8,6 +8,7 @@ import '../../core/theme/app_colors.dart';
 import '../../repositories/auth_repository.dart';
 import '../../repositories/safety_repository.dart';
 import '../../widgets/mt_header.dart' show MarcaLockup;
+import 'perfil_screen.dart';
 import 'login_screen.dart';
 import 'red_auxilio_provider.dart';
 
@@ -144,6 +145,17 @@ class ConfiguracionScreen extends ConsumerWidget {
                   _Dato(
                     etiqueta: 'Correo confirmado',
                     valor: usuario.emailConfirmedAt != null ? 'Si' : 'No',
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.person_outline_rounded,
+                        color: AppColors.brand700),
+                    title: const Text('Ver mi perfil'),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                          builder: (_) => const PerfilScreen()),
+                    ),
                   ),
                   const Divider(height: 1),
                   ListTile(

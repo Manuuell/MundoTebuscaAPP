@@ -15,7 +15,7 @@ class LoginScreen extends ConsumerStatefulWidget {
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _form = GlobalKey<FormState>();
-  final _correo = TextEditingController();
+  final _usuario = TextEditingController();
   final _clave = TextEditingController();
   final _nombre = TextEditingController();
 
@@ -26,7 +26,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   void dispose() {
-    _correo.dispose();
+    _usuario.dispose();
     _clave.dispose();
     _nombre.dispose();
     super.dispose();
@@ -44,9 +44,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     try {
       if (_registrando) {
         final r = await auth.registrar(
-          correo: _correo.text,
+          usuarioOCorreo: _usuario.text,
           clave: _clave.text,
-          nombre: _nombre.text,
         );
         if (!mounted) return;
         // Si el proyecto pide confirmar por correo, `session` viene null: la
@@ -60,7 +59,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           return;
         }
       } else {
-        await auth.entrar(correo: _correo.text, clave: _clave.text);
+        await auth.entrar(usuarioOCorreo: _usuario.text, clave: _clave.text);
       }
       if (mounted) Navigator.of(context).pop();
     } on AuthException catch (e) {
@@ -76,10 +75,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   String _mensaje(AuthException e) {
     final m = e.message.toLowerCase();
     if (m.contains('invalid login')) {
-      return 'Correo o contrasena incorrectos.';
+      return 'Usuario o contrasena incorrectos.';
     }
     if (m.contains('already registered') || m.contains('already been')) {
-      return 'Ese correo ya tiene cuenta. Inicia sesion.';
+      return 'Ese usuario ya existe. Inicia sesion.';
     }
     if (m.contains('password') && m.contains('least')) {
       return 'La contrasena es demasiado corta.';
@@ -100,37 +99,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           children: [
             Text(
               _registrando
-                  ? 'Crea tu cuenta para publicar y comentar.'
-                  : 'Entra con tu cuenta de El Mundo Te Busca.',
+                  ? 'Crea tu cuenta con un nombre de usuario y una contrasena.'
+                  : 'Entra con el mismo usuario y contrasena del sitio web.',
               style: t.bodyMedium?.copyWith(color: AppColors.muted),
             ),
             const SizedBox(height: 24),
-            if (_registrando) ...[
-              TextFormField(
-                controller: _nombre,
-                textInputAction: TextInputAction.next,
-                decoration: const InputDecoration(
-                  labelText: 'Como quieres que te vean',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 14),
-            ],
             TextFormField(
-              controller: _correo,
-              keyboardType: TextInputType.emailAddress,
+              controller: _usuario,
               autocorrect: false,
+              // Sin mayuscula automatica: el usuario se normaliza a
+              // minusculas igual, y verlo cambiar solo confunde.
+              textCapitalization: TextCapitalization.none,
               textInputAction: TextInputAction.next,
               decoration: const InputDecoration(
-                labelText: 'Correo',
+                labelText: 'Nombre de usuario',
+                helperText: 'El mismo que usas en el sitio web',
                 border: OutlineInputBorder(),
               ),
               validator: (v) {
                 final t = (v ?? '').trim();
-                if (t.isEmpty) return 'Escribe tu correo.';
-                if (!t.contains('@') || !t.contains('.')) {
-                  return 'Ese correo no parece valido.';
-                }
+                if (t.isEmpty) return 'Escribe tu nombre de usuario.';
+                if (t.length < 3) return 'Usa al menos 3 caracteres.';
                 return null;
               },
             ),

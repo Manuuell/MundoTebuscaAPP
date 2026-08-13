@@ -27,6 +27,10 @@ class Env {
     defaultValue: '© OpenStreetMap',
   );
 
+  /// Proxy del asistente. Sin esto el chat avisa de que no esta configurado,
+  /// en vez de intentar hablar con OpenAI directo — la llave nunca va aqui.
+  static const asistenteUrl = String.fromEnvironment('ASISTENTE_URL');
+
   /// Permite arrancar la app sin backend (pantallas vacias con su aviso) en
   /// vez de reventar en el `main`. Util mientras se cablea Supabase.
   static bool get hasSupabase =>

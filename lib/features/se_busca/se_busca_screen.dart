@@ -8,7 +8,6 @@ import '../../core/theme/app_colors.dart';
 import '../../core/util/freshness.dart';
 import '../../models/persona.dart';
 import '../../repositories/personas_repository.dart';
-import '../../widgets/asistente_sheet.dart';
 import '../../widgets/mt_card.dart';
 import 'widgets/baraja_reconoces.dart';
 import 'widgets/persona_tile.dart';
@@ -52,13 +51,19 @@ final personasProvider = FutureProvider<Fresh<List<Persona>>>((ref) async {
       );
 });
 
-/// Fichas de personas encontradas sin identificar (`is_unidentified = true`).
+/// Fichas de la baraja.
+///
+/// Se sirven de las MISMAS personas que la lista. La idea original era
+/// filtrar por `is_unidentified = true`, pero en la base las 48.073 filas de
+/// `persons` lo tienen en false: filtrando, la baraja no ensenaria ni una
+/// ficha. Repasar a quien se busca tambien sirve para reconocer a alguien, asi
+/// que la pantalla mantiene su proposito.
 final noIdentificadasProvider =
     FutureProvider<Fresh<List<Persona>>>((ref) async {
   final pais = ref.watch(paisProvider);
   return ref.watch(personasRepositoryProvider).listar(
         paisCodigo: pais.codigo,
-        soloNoIdentificadas: true,
+        estado: EstadoPersona.porLocalizar,
         limite: 60,
       );
 });
@@ -110,7 +115,6 @@ class _SeBuscaScreenState extends ConsumerState<SeBuscaScreen> {
         centerTitle: true,
         title: const Text('Se busca',
             style: TextStyle(fontWeight: FontWeight.w800)),
-        actions: const [BotonAsistente()],
       ),
       body: Column(
         children: [

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/asistente/asistente_screen.dart';
 import '../../features/ayuda/ayuda_screen.dart';
 import '../../features/comunidad/comunidad_screen.dart';
 import '../../features/inicio/inicio_screen.dart';
@@ -11,6 +12,7 @@ import '../../features/persona/persona_gestion_screen.dart';
 import '../../features/se_busca/se_busca_screen.dart';
 import '../../features/shell/home_shell.dart';
 import '../../features/cuenta/configuracion_screen.dart';
+import '../../features/cuenta/perfil_screen.dart';
 import '../../features/sos/sos_screen.dart';
 import '../../models/persona.dart';
 
@@ -33,6 +35,8 @@ abstract final class Rutas {
   static const ayuda = '/ayuda';
   static const mascotas = '/mascotas';
   static const persona = '/persona';
+  static const asistente = '/asistente';
+  static const perfil = '/perfil';
 }
 
 final _rootKey = GlobalKey<NavigatorState>();
@@ -105,6 +109,16 @@ GoRouter buildRouter() {
         path: Rutas.sos,
         parentNavigatorKey: _rootKey,
         builder: (_, _) => const SosScreen(),
+      ),
+      GoRoute(
+        path: Rutas.asistente,
+        parentNavigatorKey: _rootKey,
+        builder: (_, _) => const AsistenteScreen(),
+      ),
+      GoRoute(
+        path: Rutas.perfil,
+        parentNavigatorKey: _rootKey,
+        builder: (_, _) => const PerfilScreen(),
       ),
 
       // Ficha de una persona y su enlace de gestion con token.
