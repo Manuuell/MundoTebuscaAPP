@@ -71,12 +71,18 @@ class Noticias {
 /// Dos fuentes, sin ningun secreto en el cliente:
 ///
 /// 1. `news_items` de Supabase — contenido curado por el equipo.
-/// 2. **GDELT**, la misma consulta que usa la web. Es una API publica y
-///    gratuita que NO pide llave, asi que la app puede llamarla directo.
+/// 2. El **sitio web** (`/api/noticias/verificadas`): la misma lista que su
+///    carrusel, ya cocinada por su servidor — cache de 6h sobre GDELT, caida
+///    a GNews si GDELT falla y titulares traducidos con OpenAI. Todo eso
+///    necesita llaves y estado que no pueden viajar en un binario que
+///    cualquiera descomprime, y por eso se lee hecho en vez de rehacerse
+///    aqui.
 ///
-/// GNews, la otra fuente de la web, se queda fuera a proposito: exige
-/// `GNEWS_API_KEY`, y esa llave no puede viajar en un binario que cualquiera
-/// descomprime. Si algun dia hace falta, va detras de una Edge Function.
+/// Si el sitio no responde, se degrada a **GDELT directo** (API publica y
+/// gratuita, sin llave) con la traduccion via el proxy del asistente. Es el
+/// camino de emergencia, no el normal: pegarle a GDELT desde cada telefono
+/// hereda su limite por IP (429 con una peticion cada 5 segundos) y sus
+/// 12-25 s de respuesta.
 class NoticiasRepository {
   const NoticiasRepository(this._db);
 
@@ -93,16 +99,15 @@ class NoticiasRepository {
     int limite = 12,
   }) async {
     // En paralelo: si el agregador tarda, la parte curada no espera por el.
-    final (curadas, (deGdelt, fallo)) = await (
+    final (curadas, (prensa, fallo)) = await (
       _curadas(paisCodigo),
-      _gdelt(paisCodigo, limite),
+      _agregadas(paisCodigo, limite),
     ).wait;
 
-    // Orden: curadas, luego espanol, luego el resto. GDELT hoy devuelve casi
-    // todo en ingles para estas consultas —la web resuelve eso con GNews, que
-    // pide API key y por eso no puede vivir en el cliente— asi que lo poco que
-    // llegue en espanol debe ir delante.
-    final agregadas = [...deGdelt]
+    // Orden: curadas, luego espanol, luego el resto. Del sitio ya llega todo
+    // en espanol; el criterio solo muerde en el camino de emergencia (GDELT
+    // directo), donde puede quedar algun titular sin traducir.
+    final agregadas = [...prensa]
       ..sort((a, b) {
         if (a.enEspanol != b.enEspanol) return a.enEspanol ? -1 : 1;
         return (b.fecha ?? DateTime(0)).compareTo(a.fecha ?? DateTime(0));
@@ -156,17 +161,71 @@ class NoticiasRepository {
   static final _cache = <String, (DateTime, List<Noticia>)>{};
   static const _vidaCache = Duration(minutes: 10);
 
-  Future<(List<Noticia>, bool)> _gdelt(String paisCodigo, int limite) async {
-    final consulta = _consultas[paisCodigo];
-    // Un pais sin consulta definida no es un fallo: simplemente no tiene
-    // agregador, y lo curado se muestra igual.
-    if (consulta == null) return (const <Noticia>[], false);
-
+  /// Prensa del pais: el sitio primero, GDELT directo de emergencia.
+  Future<(List<Noticia>, bool)> _agregadas(
+      String paisCodigo, int limite) async {
     final guardado = _cache[paisCodigo];
     if (guardado != null &&
         DateTime.now().difference(guardado.$1) < _vidaCache) {
       return (guardado.$2, false);
     }
+
+    final delSitio = await _delSitio(paisCodigo, limite);
+    if (delSitio != null) {
+      _cache[paisCodigo] = (DateTime.now(), delSitio);
+      return (delSitio, false);
+    }
+
+    return _gdelt(paisCodigo, limite);
+  }
+
+  /// La lista del carrusel del sitio, ya con fotos y titulares en espanol.
+  ///
+  /// `null` significa "no se pudo consultar" (sin red, sitio caido) y activa
+  /// el camino de emergencia. Una lista vacia con 200 es una respuesta real
+  /// —el servidor consulto sus fuentes y no habia nada— y se respeta.
+  Future<List<Noticia>?> _delSitio(String paisCodigo, int limite) async {
+    try {
+      final uri = Uri.parse('${Env.webBaseUrl}/api/noticias/verificadas')
+          .replace(queryParameters: {
+        'country': paisCodigo,
+        'limit': '$limite',
+      });
+
+      // Con la cache del servidor caliente esto responde al instante; fria,
+      // el servidor puede tardar lo que tarde GDELT (~15 s medidos). El monto
+      // cubre ese peor caso — si el sitio esta caido de verdad, la conexion
+      // falla sola mucho antes.
+      final res = await http.get(uri).timeout(const Duration(seconds: 30));
+      if (res.statusCode != 200) return null;
+
+      final cuerpo = jsonDecode(res.body) as Map<String, dynamic>;
+      final articulos =
+          ((cuerpo['articles'] as List?) ?? const []).cast<Map<String, dynamic>>();
+
+      return articulos
+          .map((a) => Noticia(
+                titulo: '${a['title'] ?? ''}'.trim(),
+                fuente: '${a['source'] ?? 'Prensa'}',
+                url: a['url'] as String?,
+                fotoUrl: _imagenValida('${a['image'] ?? ''}'),
+                fecha: DateTime.tryParse('${a['publishedAt'] ?? ''}'),
+                // El servidor ya tradujo el titular; sin `idioma` no se pinta
+                // insignia. La nota enlazada puede seguir en otro idioma, pero
+                // eso ya lo avisa el dialogo de salida.
+              ))
+          .where((n) => n.titulo.isNotEmpty)
+          .toList(growable: false);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<(List<Noticia>, bool)> _gdelt(String paisCodigo, int limite) async {
+    final consulta = _consultas[paisCodigo];
+    // Un pais sin consulta definida no es un fallo: simplemente no tiene
+    // agregador, y lo curado se muestra igual.
+    if (consulta == null) return (const <Noticia>[], false);
 
     try {
       final uri = Uri.parse(
@@ -175,18 +234,31 @@ class NoticiasRepository {
         '&mode=artlist&maxrecords=$limite&format=json&sort=datedesc',
       );
 
-      final res = await http.get(uri, headers: {
-        // GDELT rechaza peticiones sin user-agent identificable.
-        'user-agent': 'Mozilla/5.0 (compatible; ElMundoTeBusca/1.0)',
-      })
-          // Medido contra la API real: tarda entre 12 y 15 segundos en
-          // contestar, tanto si responde bien como si responde 429. Con el
-          // limite justo en 15 s la peticion se cortaba sola casi siempre,
-          // antes de llegar a leer la respuesta.
-          .timeout(const Duration(seconds: 25));
+      Future<http.Response> pedir() => http.get(uri, headers: {
+            // GDELT rechaza peticiones sin user-agent identificable.
+            'user-agent': 'Mozilla/5.0 (compatible; ElMundoTeBusca/1.0)',
+          })
+              // Medido contra la API real: tarda entre 12 y 15 segundos en
+              // contestar, tanto si responde bien como si responde 429. Con el
+              // limite justo en 15 s la peticion se cortaba sola casi siempre,
+              // antes de llegar a leer la respuesta.
+              .timeout(const Duration(seconds: 25));
+
+      var res = await pedir();
 
       // 429 ("una peticion cada 5 segundos") es su respuesta mas frecuente,
-      // no un caso raro. Tratarla como "no hay noticias" tiraba una lista
+      // no un caso raro, y el arranque tipico lo provoca solo: la app abre
+      // con el pais semilla, dispara esta consulta, y medio segundo despues
+      // `cargarGuardado()` cambia al pais guardado — la segunda consulta cae
+      // dentro de la ventana y GDELT la rechaza siempre. Esperar a que pase
+      // la ventana y reintentar UNA vez convierte ese fallo seguro en una
+      // espera de unos segundos.
+      if (res.statusCode == 429) {
+        await Future<void>.delayed(const Duration(seconds: 6));
+        res = await pedir();
+      }
+
+      // Tratar cualquier otro fallo como "no hay noticias" tiraba una lista
       // buena que seguia sirviendo.
       if (res.statusCode != 200) return _respaldo(paisCodigo);
 

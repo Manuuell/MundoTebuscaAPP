@@ -34,6 +34,16 @@ class Env {
   /// Endpoint que resuelve usuario -> sesion. Ver AuthRepository.entrar.
   static const authUrl = String.fromEnvironment('AUTH_URL');
 
+  /// Base del sitio web, para lo que su servidor ya resuelve mejor que el
+  /// telefono. El caso concreto son las noticias: el sitio pega a GDELT una
+  /// vez cada 6 horas, cae a GNews si falla y traduce con OpenAI — todo con
+  /// llaves y cache que no pueden viajar en la app. Pegarle a GDELT desde
+  /// cada telefono hereda su limite por IP y su latencia; leer del sitio, no.
+  static const webBaseUrl = String.fromEnvironment(
+    'WEB_BASE_URL',
+    defaultValue: 'https://elmundotebusca.com',
+  );
+
   /// Permite arrancar la app sin backend (pantallas vacias con su aviso) en
   /// vez de reventar en el `main`. Util mientras se cablea Supabase.
   static bool get hasSupabase =>
