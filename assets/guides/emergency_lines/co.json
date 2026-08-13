@@ -1,0 +1,9 @@
+{
+  "country": "CO",
+  "nationalLine": { "number": "123", "label": "Línea única nacional de emergencias" },
+  "groups": [
+    { "label": "Bomberos", "number": "119" },
+    { "label": "Cruz Roja", "number": "132" },
+    { "label": "Defensa Civil", "number": "144" }
+  ]
+}

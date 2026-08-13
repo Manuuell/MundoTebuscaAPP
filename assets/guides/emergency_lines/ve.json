@@ -1,0 +1,8 @@
+{
+  "country": "VE",
+  "nationalLine": { "number": "911", "label": "Línea única de emergencia" },
+  "groups": [
+    { "label": "Bomberos", "number": "0212-5411111" },
+    { "label": "Cruz Roja", "number": "0212-5715555" }
+  ]
+}

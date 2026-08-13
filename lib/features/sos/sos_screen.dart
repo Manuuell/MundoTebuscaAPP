@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/state/pais_provider.dart';
 import '../../core/theme/app_colors.dart';
+import '../../widgets/guia_rapida_sheet.dart';
 
 /// SOS: la pantalla que tiene que funcionar aunque todo lo demas falle.
 ///
@@ -59,16 +60,14 @@ class SosScreen extends ConsumerWidget {
           const SizedBox(height: 16),
           Text('Guia rapida', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 8),
-          // TODO(fase-1): traer la guia de `/emergencias` de la web. Debe
-          // quedar empaquetada como asset, no descargarse: es justo el
-          // contenido que hace falta cuando no hay senal.
-          const Card(
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Text(
-                'Pendiente: acciones esenciales de las primeras horas.',
-                style: TextStyle(color: AppColors.muted),
-              ),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.menu_book_rounded,
+                  color: AppColors.brand700),
+              title: const Text('Que hacer en las primeras horas'),
+              subtitle: const Text('9 pasos · funciona sin conexion'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => mostrarGuiaRapida(context),
             ),
           ),
         ],

@@ -8,7 +8,9 @@ import '../../core/theme/app_colors.dart';
 import '../../models/pais.dart';
 import '../../models/persona.dart';
 import '../../widgets/cifra_chip.dart';
+import '../../widgets/mt_header.dart';
 import '../../widgets/pais_switcher.dart';
+import '../../widgets/mt_card.dart' show Press;
 import '../shell/home_shell.dart';
 import 'cifras_providers.dart';
 
@@ -27,13 +29,15 @@ class InicioScreen extends ConsumerWidget {
     final panel = ref.watch(cifrasPanelProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const PaisSwitcher(),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.more_horiz_rounded),
-            tooltip: 'Mas',
-            onPressed: () => mostrarHojaMas(context),
+      appBar: MTHeader(
+        acciones: [
+          Press(
+            onTap: () => mostrarHojaMas(context),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+              child: Icon(Icons.more_horiz_rounded,
+                  color: AppColors.muted, size: 24),
+            ),
           ),
         ],
       ),
@@ -45,6 +49,10 @@ class InicioScreen extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           children: [
+            const Padding(
+              padding: EdgeInsets.only(bottom: 10),
+              child: PaisSwitcher(),
+            ),
             _Hero(pais: pais),
             const SizedBox(height: 20),
             const _CifrasSismoBloque(),
