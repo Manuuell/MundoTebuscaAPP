@@ -1,16 +1,17 @@
--- Mapa de Colombia: hospitales de referencia y coordenadas de acopio.
--- Generado el 2026-08-13. Ejecutar en el editor SQL de Supabase.
+-- Mapa de Colombia · 1 de 2: hospitales de referencia. SOLO APP.
 --
--- La PARTE 1 es solo para la app: crea `hospitals_osm`, una tabla que el
--- codigo de la web no nombra en ningun sitio. Meter esto en `hospitals`
--- lo publicaria en elmundotebusca.com, porque su listado no filtra por
--- `verified` (src/lib/data.ts:4004).
+-- Crea `hospitals_osm` con 167 hospitales de los cinco departamentos con
+-- desaparecidos del sismo, importados de OpenStreetMap.
 --
--- La PARTE 2 sí toca datos que la web ya muestra. Va aparte a proposito:
--- se puede ejecutar solo la 1 y dejar la 2 para cuando se decida.
-
-
--- ─── PARTE 1: hospitales, solo app ────────────────────────────────────
+-- NO toca `hospitals`, y no es un descuido: la web lista esa tabla filtrando
+-- solo por pais, sin mirar `verified` (src/lib/data.ts:4004). Mover estas
+-- filas alli las publica en elmundotebusca.com sin que nadie las haya
+-- verificado. El codigo de la web no nombra `hospitals_osm` en ningun sitio.
+--
+-- No cambia nada de lo que hoy se ve en el sitio. Se puede ejecutar solo este
+-- fichero y dejar el 2 para despues.
+--
+-- Deshacer:  drop table if exists hospitals_osm;
 
 begin;
 
@@ -22,13 +23,13 @@ create table if not exists hospitals_osm (
   lat           double precision not null,
   lng           double precision not null,
   contact_phone text,
-  -- OSM marca con `emergency=yes` los centros con servicio de urgencias.
-  -- Es lo unico parecido a una capacidad que trae la fuente, y despues de
-  -- un sismo es justo lo que importa. No dice si hoy estan recibiendo.
+  -- OSM marca con `emergency=yes` los centros con servicio de urgencias. Es lo
+  -- unico parecido a una capacidad que trae la fuente, y despues de un sismo
+  -- es justo lo que importa. No dice si hoy estan recibiendo.
   has_emergency boolean not null default false,
   country       text not null default 'co',
-  -- Identificador del objeto en OpenStreetMap, para poder volver a la
-  -- fuente de cualquier fila y corregirla alli si esta mal.
+  -- Identificador del objeto en OpenStreetMap, para poder volver a la fuente
+  -- de cualquier fila y corregirla alli si esta mal.
   osm_ref       text,
   updated_at    timestamptz not null default now()
 );
@@ -220,23 +221,3 @@ commit;
 
 -- Comprobacion:
 --   select estado, count(*) from hospitals_osm group by estado order by 2 desc;
-
-
--- ─── PARTE 2: coordenadas de acopio (esto SI se ve en la web) ─────────
---
--- Son 6 puntos que ya existen y que la web ya lista; lo unico que cambia
--- es que pasan a tener coordenada y por tanto pueden salir en su mapa.
--- Ninguno es dato nuevo ni sin verificar. Si aun asi se prefiere que la
--- web no cambie hoy, basta con no ejecutar este bloque.
-
-begin;
-update aid_points set lat = 4.6142765, lng = -74.0632805 where id = '302121d0-ba53-435b-9e07-27d0c1ebf6ed' and lat is null;  -- Universidad Francisco José de Caldas
-update aid_points set lat = 4.6070836, lng = -74.0675481 where id = '5b989e7f-4b76-4adf-8a7f-06fab7e5bfc6' and lat is null;  -- Universidad Jorge Tadeo Lozano
-update aid_points set lat = 10.4019402, lng = -75.5054963 where id = 'f0fe7a04-30ab-41b8-bedf-3b75ba677330' and lat is null;  -- Universidad de Cartagena
-update aid_points set lat = 10.4252358, lng = -75.5366822 where id = '221cf673-8892-4d76-8fd1-3e495ec4f01e' and lat is null;  -- Coliseo Bernardo Caraballo
-update aid_points set lat = 3.3016718, lng = -76.5434546 where id = 'da71986d-85f8-4f1d-8ddb-f5d1be350024' and lat is null;  -- Centro Deportivo Luz Mery Tristán
-update aid_points set lat = 3.4550187, lng = -76.5348007 where id = 'edcb3c81-65db-465b-8930-14522539dccf' and lat is null;  -- Plazoleta Jairo Varela
-commit;
-
--- Comprobacion:
---   select count(*) from aid_points where country='co' and lat is not null;

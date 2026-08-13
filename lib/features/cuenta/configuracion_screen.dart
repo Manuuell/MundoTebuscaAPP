@@ -29,6 +29,15 @@ final _versionProvider = FutureProvider<String>((ref) async {
 /// abajo, asi que repetirla aqui solo duplicaria contenido — pero conviene
 /// saberlo, porque en una app de desastres es el dato mas critico de toda la
 /// interfaz.
+///
+/// Sin sesion NO se tapa la pantalla entera. Aqui cuelgan los unicos accesos a
+/// "Emergencia y seguridad", "Ayuda y hospitales", "Necesitan ayuda" y la red
+/// de auxilio; esconderlos tras un muro de login dejaba a quien no tiene
+/// cuenta —justo quien acaba de instalar la app en una emergencia— sin forma
+/// de llegar a los telefonos de socorro. La red de auxilio ademas funciona por
+/// dispositivo (`device_id` en SafetyRepository), no por cuenta, asi que
+/// nunca necesito sesion. Solo lo que de verdad es de cuenta (perfil,
+/// contadores, contrasena, cerrar sesion) queda detras del login.
 class ConfiguracionScreen extends ConsumerWidget {
   const ConfiguracionScreen({super.key});
 
@@ -50,64 +59,67 @@ class ConfiguracionScreen extends ConsumerWidget {
         title: const Text('Ajustes',
             style: TextStyle(fontWeight: FontWeight.w800, fontSize: 26)),
       ),
-      body: usuario == null
-          ? const _SinSesion()
-          : ListView(
-              padding: EdgeInsets.fromLTRB(
-                  16, 8, 16, MediaQuery.paddingOf(context).bottom + 24),
-              children: [
-                _TarjetaPerfil(nombre: nombre, perfil: perfil),
-                const SizedBox(height: 14),
-                const _Contadores(),
-                const SizedBox(height: 22),
-                const _Rotulo('SECCIONES'),
-                const SizedBox(height: 8),
-                const _BloqueSecciones(),
-                const SizedBox(height: 22),
-                const _Rotulo('RED DE AUXILIO'),
-                const SizedBox(height: 8),
-                MTCard(
-                  padding: EdgeInsets.zero,
-                  clip: true,
-                  child: _RedAuxilioSeccion(paisCodigo: pais.codigo),
-                ),
-                const SizedBox(height: 22),
-                const _Rotulo('CUENTA'),
-                const SizedBox(height: 8),
-                _BloqueCuenta(perfil: perfil),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
-                    onPressed: () => cerrarSesion(context, ref),
-                    child: const Text('Cerrar sesion'),
-                  ),
-                ),
-                const SizedBox(height: 18),
-                Center(
-                  child: TextButton(
-                    onPressed: () => _eliminarCuenta(context),
-                    child: const Text('Eliminar cuenta',
-                        style: TextStyle(
-                            color: AppColors.danger500,
-                            fontWeight: FontWeight.w700)),
-                  ),
-                ),
-                const Center(
-                  child: Text(
-                    'No borra tus publicaciones, solo las desvincula',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 12, color: AppColors.muted),
-                  ),
-                ),
-                const SizedBox(height: 26),
-                Center(
-                  child: Text('Version $version',
-                      style: const TextStyle(
-                          fontSize: 12, color: AppColors.border)),
-                ),
-              ],
+      body: ListView(
+        padding: EdgeInsets.fromLTRB(
+            16, 8, 16, MediaQuery.paddingOf(context).bottom + 24),
+        children: [
+          if (usuario == null)
+            const _InvitacionCuenta()
+          else ...[
+            _TarjetaPerfil(nombre: nombre, perfil: perfil),
+            const SizedBox(height: 14),
+            const _Contadores(),
+          ],
+          const SizedBox(height: 22),
+          const _Rotulo('SECCIONES'),
+          const SizedBox(height: 8),
+          const _BloqueSecciones(),
+          const SizedBox(height: 22),
+          const _Rotulo('RED DE AUXILIO'),
+          const SizedBox(height: 8),
+          MTCard(
+            padding: EdgeInsets.zero,
+            clip: true,
+            child: _RedAuxilioSeccion(paisCodigo: pais.codigo),
+          ),
+          if (usuario != null) ...[
+            const SizedBox(height: 22),
+            const _Rotulo('CUENTA'),
+            const SizedBox(height: 8),
+            _BloqueCuenta(perfil: perfil),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () => cerrarSesion(context, ref),
+                child: const Text('Cerrar sesion'),
+              ),
             ),
+            const SizedBox(height: 18),
+            Center(
+              child: TextButton(
+                onPressed: () => _eliminarCuenta(context),
+                child: const Text('Eliminar cuenta',
+                    style: TextStyle(
+                        color: AppColors.danger500,
+                        fontWeight: FontWeight.w700)),
+              ),
+            ),
+            const Center(
+              child: Text(
+                'No borra tus publicaciones, solo las desvincula',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12, color: AppColors.muted),
+              ),
+            ),
+          ],
+          const SizedBox(height: 26),
+          Center(
+            child: Text('Version $version',
+                style: const TextStyle(fontSize: 12, color: AppColors.border)),
+          ),
+        ],
+      ),
     );
   }
 
@@ -523,40 +535,70 @@ class _Fila extends StatelessWidget {
   }
 }
 
-class _SinSesion extends StatelessWidget {
-  const _SinSesion();
+/// Ocupa el sitio de la tarjeta de perfil cuando no hay sesion.
+///
+/// Es una invitacion, no un muro: lo de abajo (secciones, red de auxilio) se
+/// usa igual sin cuenta. Por eso el texto dice para que sirve entrar en vez de
+/// dar a entender que la pantalla esta bloqueada.
+class _InvitacionCuenta extends StatelessWidget {
+  const _InvitacionCuenta();
 
   @override
-  Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+  Widget build(BuildContext context) {
+    return MTCard(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              const Icon(Icons.settings_outlined,
-                  size: 52, color: AppColors.border),
-              const SizedBox(height: 16),
-              Text('Sin sesion iniciada',
-                  style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 8),
-              const Text(
-                'Entra con tu cuenta para gestionar tu perfil y tus ajustes.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: AppColors.muted),
-              ),
-              const SizedBox(height: 20),
-              FilledButton.icon(
-                onPressed: () =>
-                    Navigator.of(context, rootNavigator: true).push(
-                  MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: AppColors.brand50,
+                  borderRadius: BorderRadius.circular(13),
                 ),
-                icon: const Icon(Icons.login_rounded, size: 18),
-                label: const Text('Entrar o crear cuenta'),
+                child: const Icon(Icons.account_circle_outlined,
+                    size: 24, color: AppColors.brand700),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Sin cuenta',
+                        style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.navy700)),
+                    const SizedBox(height: 3),
+                    const Text(
+                      'Puedes usar la app sin entrar. Con cuenta guardas '
+                      'publicaciones y las llevas a otro telefono.',
+                      style:
+                          TextStyle(color: AppColors.muted, fontSize: 12.5),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
-        ),
-      );
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: () => Navigator.of(context, rootNavigator: true).push(
+                MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+              ),
+              icon: const Icon(Icons.login_rounded, size: 18),
+              label: const Text('Entrar o crear cuenta'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// Interruptor de "¿Estas bien?" tras un sismo.

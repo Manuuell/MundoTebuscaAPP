@@ -1,12 +1,20 @@
 # Datos del mapa de Colombia
 
-`mapa_colombia.sql` se ejecuta **a mano en el editor SQL de Supabase**. La
-`anon key` solo puede leer, así que no hay forma de cargar esto desde la app
-ni con un script que use la llave pública.
+Se ejecuta **a mano en el editor SQL de Supabase**. La `anon key` solo puede
+leer, así que no hay forma de cargar esto desde la app ni con un script que
+use la llave pública.
 
-El fichero va en **dos partes que se ejecutan por separado**.
+Son **dos ficheros independientes**, y están separados porque no tienen la
+misma consecuencia ni la decide la misma persona:
 
-## Parte 1 — hospitales, solo en la app
+| Fichero | Qué hace | ¿Cambia la web? |
+|---|---|---|
+| `mapa_colombia_1_hospitales.sql` | Crea `hospitals_osm` + 167 hospitales | **No** |
+| `mapa_colombia_2_acopio.sql` | Coordenadas a 6 puntos de acopio existentes | Sí |
+
+El 1 no depende del 2. Se puede ejecutar solo el primero, y el segundo nunca.
+
+## Fichero 1 — hospitales, solo en la app
 
 Crea la tabla `hospitals_osm` y mete **167 hospitales** de los cinco
 departamentos con desaparecidos del sismo: Risaralda, Valle del Cauca, Chocó,
@@ -33,12 +41,12 @@ Es idempotente: los `id` son `uuid5` del identificador de OpenStreetMap, con
 `on conflict (id) do nothing`. Reejecutarlo no duplica nada, y cada fila se
 puede rastrear hasta su objeto OSM por la columna `osm_ref`.
 
-## Parte 2 — coordenadas de acopio (esto **sí** se ve en la web)
+## Fichero 2 — coordenadas de acopio (esto **sí** se ve en la web)
 
 Seis `update` sobre puntos de `aid_points` que ya existen y que la web ya
 lista; lo único que cambia es que pasan a tener coordenada, y por tanto pueden
-salir en su mapa. No es dato nuevo ni sin verificar. Aun así va en su propio
-bloque: **se puede ejecutar solo la parte 1 y dejar esta para después.**
+salir en su mapa. No es dato nuevo ni sin verificar, pero la decisión de
+publicarlo no es de quien generó el fichero: por eso va aparte.
 
 ## De dónde sale cada cosa
 
@@ -49,7 +57,7 @@ bloque: **se puede ejecutar solo la parte 1 y dejar esta para después.**
   lugar concreto (universidad, plaza, coliseo). De 63 puntos solo 6 llegaron a
   ese nivel: la nomenclatura colombiana (`Carrera 64D #86-75`) casi no existe
   en OSM. Reproducible con `geocodificar_acopio.py`.
-- **El SQL** — `generar_sql.py`, a partir de los dos anteriores.
+- **El SQL** — `generar_sql.py`, a partir de los dos anteriores. Escribe los dos ficheros.
 - **Epicentro** — no está aquí. Es un hecho fijo del evento, no un dato
   editable, y vive en `lib/core/config/sismo.dart` con la referencia de USGS.
 
