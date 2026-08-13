@@ -250,6 +250,42 @@ verificar campos exactos ahí antes de escribir la política).
 4. **Radio de alerta más preciso** con datos reales de USGS `dyfi` en vez de
    la heurística simple del MVP.
 
+## 8. Idea para la presentación en vivo (Angel, 2026-08-13)
+
+Demo propuesta para cuando la compañera presente el proyecto en vivo (Zoom u
+otro espacio con público):
+
+1. Un compañero en la llamada tiene la "Red de auxilio" activa en su teléfono.
+2. Se simula que hay un sismo cerca de él (usando `test-alert`, el disparador
+   manual que ya existe en la Edge Function — no hace falta esperar un sismo
+   real ni falsear datos de USGS).
+3. Su teléfono suena/vibra con la notificación "¿Estás bien?" — visible para
+   todo el público en la pantalla compartida.
+4. Si no responde (o responde que no), su ubicación y datos relevantes de
+   perfil (incluyendo tipo de sangre, si está cargado) se comparten con otro
+   compañero que también tiene el rol de voluntario/rescatista y la app
+   activa.
+5. Ese segundo compañero recibe la alerta con la ubicación y el perfil, y
+   físicamente se acerca al primero frente al público — cerrando el círculo
+   completo del flujo en vivo, delante de la audiencia.
+
+Requisitos técnicos para que esta demo funcione:
+
+- `test-alert` desplegado y accesible desde ambos teléfonos (ver estado al
+  inicio de este documento).
+- El campo "tipo de sangre" (u otros datos médicos relevantes) tiene que
+  existir en el perfil del usuario y viajar en el payload que ve el
+  voluntario/rescatista al recibir la alerta — hoy el esquema de §4 no
+  incluye ese campo; si se quiere para la demo, hay que añadirlo al perfil de
+  usuario (no a `safety_optins`/`safety_checkins`) y decidir explícitamente
+  si se muestra solo en `needs_help`/`no_response`, nunca por defecto.
+- El segundo compañero necesita tener rol `volunteer`/`rescuer` en
+  `app_roles` para poder ver la alerta (§4, §6) — confirmarlo con
+  anticipación, no el día de la presentación.
+- Vale la pena probar el flujo completo al menos una vez antes del evento en
+  vivo (mismo espíritu que la lista de pruebas de deep linking del plan
+  general) para no descubrir un bug delante del público.
+
 ## Fuentes
 
 - USGS Earthquake API (`earthquake.usgs.gov/fdsnws/event/1/`) — ya en uso en
