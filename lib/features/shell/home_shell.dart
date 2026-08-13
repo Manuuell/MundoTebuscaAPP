@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/router/app_router.dart';
-import '../../core/theme/app_colors.dart';
+
 import '../../widgets/floating_tab_bar.dart';
 
-/// Cascaron de la app: 5 tabs primarios en barra flotante + hoja "Mas".
+/// Cascaron de la app: 5 tabs primarios en una barra flotante.
 ///
 /// La jerarquia viene de `MobileNav.tsx`, que ya la resolvio para la PWA, con
 /// un cambio pedido: la quinta pestana es Ajustes en vez de SOS. Emergencias
@@ -66,12 +65,6 @@ class HomeShell extends StatelessWidget {
           ),
           FloatingTabBar(
             items: _tabs,
-            accionFinal: (
-              icono: Icons.menu_rounded,
-              iconoActivo: Icons.menu_rounded,
-              etiqueta: 'Mas'
-            ),
-            alTocarAccion: () => mostrarHojaMas(context),
             indiceActual: shell.currentIndex,
             alTocar: (i) => shell.goBranch(
               i,
@@ -84,69 +77,4 @@ class HomeShell extends StatelessWidget {
       ),
     );
   }
-}
-
-/// Hoja "Mas": lo que en la web cuelga de `MobileNav.tsx:41-44`.
-Future<void> mostrarHojaMas(BuildContext context) {
-  return showModalBottomSheet<void>(
-    context: context,
-    showDragHandle: true,
-    builder: (sheetContext) => SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            leading: const Icon(Icons.person_outline_rounded,
-                color: AppColors.brand700),
-            title: const Text('Mi perfil'),
-            subtitle: const Text('Tu foto y tu actividad'),
-            onTap: () {
-              Navigator.pop(sheetContext);
-              context.push(Rutas.perfil);
-            },
-          ),
-          const Divider(height: 1),
-          ListTile(
-            leading: const Icon(Icons.smart_toy_rounded,
-                color: AppColors.brand500),
-            title: const Text('Asistente'),
-            subtitle: const Text('Pregunta sobre la emergencia o la app'),
-            onTap: () {
-              Navigator.pop(sheetContext);
-              context.push(Rutas.asistente);
-            },
-          ),
-          const Divider(height: 1),
-          ListTile(
-            leading: const Icon(Icons.local_hospital_outlined,
-                color: AppColors.brand700),
-            title: const Text('Ayuda y hospitales'),
-            onTap: () {
-              Navigator.pop(sheetContext);
-              context.push(Rutas.ayuda);
-            },
-          ),
-          ListTile(
-            leading:
-                const Icon(Icons.pets_outlined, color: AppColors.brand700),
-            title: const Text('Mascotas'),
-            onTap: () {
-              Navigator.pop(sheetContext);
-              context.push(Rutas.mascotas);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.emergency_outlined,
-                color: AppColors.danger500),
-            title: const Text('Emergencia y seguridad'),
-            onTap: () {
-              Navigator.pop(sheetContext);
-              context.push(Rutas.sos);
-            },
-          ),
-          const SizedBox(height: 8),
-        ],
-      ),
-    ),
-  );
 }

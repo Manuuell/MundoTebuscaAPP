@@ -31,6 +31,9 @@ class Env {
   /// en vez de intentar hablar con OpenAI directo — la llave nunca va aqui.
   static const asistenteUrl = String.fromEnvironment('ASISTENTE_URL');
 
+  /// Endpoint que resuelve usuario -> sesion. Ver AuthRepository.entrar.
+  static const authUrl = String.fromEnvironment('AUTH_URL');
+
   /// Permite arrancar la app sin backend (pantallas vacias con su aviso) en
   /// vez de reventar en el `main`. Util mientras se cablea Supabase.
   static bool get hasSupabase =>

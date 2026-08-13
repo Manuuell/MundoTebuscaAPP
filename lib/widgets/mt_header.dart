@@ -93,7 +93,7 @@ class MTHeader extends ConsumerWidget implements PreferredSizeWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 visualDensity: VisualDensity.compact,
               ),
-              onPressed: () => Navigator.of(context).push(
+              onPressed: () => Navigator.of(context, rootNavigator: true).push(
                 MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
               ),
               icon: const Icon(Icons.login_rounded, size: 17),

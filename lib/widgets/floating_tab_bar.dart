@@ -50,7 +50,7 @@ class FloatingTabBar extends StatelessWidget {
     return Positioned(
       left: 16,
       right: 16,
-      bottom: 12 + abajo,
+      bottom: 6 + abajo,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(28),
         child: BackdropFilter(
@@ -61,10 +61,13 @@ class FloatingTabBar extends StatelessWidget {
           child: Container(
             height: 60,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.72),
+              // Casi opaca. Con 0.72 el contenido se leia a traves de la
+              // barra y los titulos de debajo competian con las etiquetas.
+              // El blur se mantiene: suaviza lo que asoma por los bordes
+              // redondeados sin dejar que el texto se cuele.
+              color: Colors.white.withValues(alpha: 0.97),
               borderRadius: BorderRadius.circular(28),
-              border:
-                  Border.all(color: Colors.white.withValues(alpha: 0.55)),
+              border: Border.all(color: AppColors.border),
               // Nivel 1 alto, que proyecta hacia abajo. La sombra de hoja va
               // hacia arriba y aqui quedaria al reves.
               boxShadow: MTElevation.cardHover,

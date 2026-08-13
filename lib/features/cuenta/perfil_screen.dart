@@ -304,7 +304,7 @@ class _SinSesion extends StatelessWidget {
               ),
               const SizedBox(height: 20),
               FilledButton.icon(
-                onPressed: () => Navigator.of(context).push(
+                onPressed: () => Navigator.of(context, rootNavigator: true).push(
                   MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
                 ),
                 icon: const Icon(Icons.login_rounded, size: 18),
