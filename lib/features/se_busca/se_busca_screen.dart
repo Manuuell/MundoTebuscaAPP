@@ -9,7 +9,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/util/freshness.dart';
 import '../../models/persona.dart';
 import '../../repositories/personas_repository.dart';
-import '../../widgets/floating_tab_bar.dart';
+import '../../widgets/boton_publicar.dart';
 import '../../widgets/mt_card.dart';
 import '../../widgets/mt_search_bar.dart';
 import 'widgets/baraja_reconoces.dart';
@@ -242,20 +242,15 @@ class _SeBuscaScreenState extends ConsumerState<SeBuscaScreen> {
       // guardado es el peor fallo posible.
       // Solo en la lista: en la baraja el pulgar esta justo encima de los
       // botones de decidir, y ahi un boton mas es un toque equivocado.
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      // Solo en la lista: en la baraja el pulgar esta justo encima de los
+      // botones de decidir, y ahi un boton mas es un toque equivocado.
       floatingActionButton: _baraja
           ? null
-          : Padding(
-              // Sube por encima de la tab bar flotante, que si no lo tapa.
-              padding: EdgeInsets.only(
-                  bottom: FloatingTabBar.alturaOcupada - 12),
-              child: FloatingActionButton.extended(
-                heroTag: 'publicar-persona',
-                onPressed: () => _publicarPersona(context),
-                backgroundColor: AppColors.brand500,
-                foregroundColor: Colors.white,
-                icon: const Icon(Icons.person_add_alt_rounded, size: 20),
-                label: const Text('Publicar persona'),
-              ),
+          : BotonPublicar(
+              icono: Icons.person_add_alt_rounded,
+              etiqueta: 'Publicar',
+              alTocar: () => _publicarPersona(context),
             ),
       body: Column(
         children: [

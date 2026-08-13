@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../widgets/floating_tab_bar.dart';
+import '../../widgets/boton_publicar.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/util/freshness.dart';
@@ -50,18 +50,12 @@ class ComunidadScreen extends ConsumerWidget {
             ],
           ),
         ),
-        floatingActionButton: Padding(
-          // Por encima de la tab bar flotante, que si no lo tapa.
-          padding:
-              EdgeInsets.only(bottom: FloatingTabBar.alturaOcupada - 12),
-          child: FloatingActionButton.extended(
-            heroTag: 'publicar-comunidad',
-            onPressed: () => _publicar(context),
-            backgroundColor: AppColors.brand500,
-            foregroundColor: Colors.white,
-            icon: const Icon(Icons.edit_rounded, size: 20),
-            label: const Text('Publicar'),
-          ),
+        floatingActionButtonLocation:
+            FloatingActionButtonLocation.centerFloat,
+        floatingActionButton: BotonPublicar(
+          icono: Icons.edit_rounded,
+          etiqueta: 'Publicar',
+          alTocar: () => _publicar(context),
         ),
         body: const TabBarView(
           children: [
