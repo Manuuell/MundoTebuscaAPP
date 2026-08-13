@@ -44,7 +44,11 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
-# Artefactos de build locales
+# Artefactos de build locales.
+# Sin barra ademas de `build/`: cuando el repo vive en iCloud Drive, `build` es
+# un symlink que apunta fuera (ver README) y git lo trata como archivo, asi que
+# el patron con barra no lo atrapa.
+build
 build/
 .dart_tool/
 

@@ -22,6 +22,26 @@ Verificación rápida:
 flutter analyze && flutter test
 ```
 
+### Si el repo vive dentro de iCloud Drive (iOS)
+
+iCloud le pega atributos extendidos (`com.apple.FinderInfo`) a los archivos, y
+`codesign` se niega a firmar binarios que los lleven. El build de iOS falla con
+*"resource fork, Finder information, or similar detritus not allowed"* — que no
+tiene nada que ver con el código.
+
+Solución: sacar los artefactos de build fuera de iCloud, una sola vez.
+
+```bash
+rm -rf build && mkdir -p ~/FlutterBuilds/MundoTeBusca && ln -s ~/FlutterBuilds/MundoTeBusca build
+```
+
+Si ya falló antes, hay que limpiar el estado a medias o el enlazador se queja de
+`Undefined symbol: _OBJC_CLASS_$_FlutterAppDelegate`:
+
+```bash
+flutter clean && rm -rf ios/Pods ios/Podfile.lock ios/.symlinks
+```
+
 ## Decisiones que ya están tomadas
 
 - **Flutter habla directo con Supabase**, sin API intermedia: mismas políticas
