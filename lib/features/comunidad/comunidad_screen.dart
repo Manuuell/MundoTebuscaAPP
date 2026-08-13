@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/util/freshness.dart';
 import '../../models/publicacion.dart';
+import '../../widgets/mt_card.dart';
 import 'comunidad_providers.dart';
 import 'publicacion_detalle_screen.dart';
 import 'widgets/novedades_sheet.dart';
@@ -493,7 +494,8 @@ class _Lista<T> extends StatelessWidget {
                   itemCount: fresh.data.length,
                   separatorBuilder: (_, _) =>
                       SizedBox(height: conPadding ? 10 : 0),
-                  itemBuilder: (_, i) => constructor(fresh.data[i]),
+                  itemBuilder: (_, i) =>
+                      MTEntrada(indice: i, child: constructor(fresh.data[i])),
                 ),
               ),
             ),

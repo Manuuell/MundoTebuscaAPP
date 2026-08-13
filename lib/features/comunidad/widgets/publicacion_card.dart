@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../models/publicacion.dart';
+import '../../../widgets/mt_card.dart';
 
 /// "hace 3 min", "hace 2 h", "hace 4 d".
 String tiempoTranscurrido(DateTime? t) {
@@ -42,22 +43,11 @@ class PublicacionCard extends StatelessWidget {
     final p = publicacion;
     final t = Theme.of(context).textTheme;
 
-    return Container(
-      margin: const EdgeInsets.fromLTRB(14, 7, 14, 7),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.border),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.navy700.withValues(alpha: 0.06),
-            blurRadius: 14,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 7, 14, 7),
+      child: MTCard(
+        padding: EdgeInsets.zero,
+        clip: true,
         onTap: onTap,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
