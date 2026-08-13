@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/state/pais_provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../repositories/auth_repository.dart';
+import '../../widgets/mt_header.dart' show MarcaLockup;
 import 'login_screen.dart';
 
 final _versionProvider = FutureProvider<String>((ref) async {
@@ -184,6 +185,11 @@ class ConfiguracionScreen extends ConsumerWidget {
           _Tarjeta(
             child: Column(
               children: [
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 22, 16, 18),
+                  child: Center(child: MarcaLockup(alto: 76, completo: true)),
+                ),
+                const Divider(height: 1),
                 _Dato(etiqueta: 'Version', valor: version),
                 ListTile(
                   leading: const Icon(Icons.public_rounded,

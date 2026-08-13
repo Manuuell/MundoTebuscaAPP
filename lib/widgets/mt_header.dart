@@ -7,41 +7,32 @@ import '../repositories/auth_repository.dart';
 import 'guia_rapida_sheet.dart';
 import 'mt_card.dart' show Press;
 
-/// Marca: el corazon mas el wordmark en dos lineas, igual que la cabecera del
-/// sitio.
+/// Lockup de marca.
+///
+/// Es el archivo real del disenador, no un wordmark reconstruido con `Text`:
+/// asi la tipografia y el interletrado son los de la marca y no dependen de
+/// que `google_fonts` acierte con el peso.
+///
+/// La version de cabecera deja fuera los lemas "juntos salvamos vidas" y
+/// "voluntarios digitales" del lockup completo. A 34 px de alto esas dos
+/// lineas medirian dos o tres pixeles: no se leerian, solo ensuciarian. Van en
+/// `lockup_completo`, para donde hay sitio de sobra.
 class MarcaLockup extends StatelessWidget {
-  const MarcaLockup({super.key, this.alto = 38});
+  const MarcaLockup({super.key, this.alto = 34, this.completo = false});
 
   final double alto;
+  final bool completo;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Image.asset('assets/images/marca.png', height: alto),
-        const SizedBox(width: 9),
-        const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('El Mundo',
-                style: TextStyle(
-                  fontSize: 15,
-                  height: 1.15,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.navy700,
-                )),
-            Text('Te Busca',
-                style: TextStyle(
-                  fontSize: 15,
-                  height: 1.15,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.navy700,
-                )),
-          ],
-        ),
-      ],
+    return Image.asset(
+      completo
+          ? 'assets/images/lockup_completo.png'
+          : 'assets/images/lockup.png',
+      height: alto,
+      // El logo lleva el nombre del producto; para un lector de pantalla es
+      // el titulo de la pantalla, no una imagen decorativa.
+      semanticLabel: 'El Mundo Te Busca',
     );
   }
 }
