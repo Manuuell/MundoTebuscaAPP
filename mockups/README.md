@@ -20,6 +20,16 @@ Glass")** descrita en
 Emergencias/SOS se movió a la hoja "Más" (junto con Ayuda y Mascotas), sigue
 accesible pero ya no es tab primario.
 
+**Asistente virtual (chatbot, 2026-08-13)**: el punto de entrada es un
+**ícono en la cabecera** (badge circular terracota con una carita de robot,
+SVG propio dibujado en este chat, no un ícono de librería), no un botón
+flotante — decidido a propósito para no repetir el problema que doc 09 §6 ya
+identificó al descartar un FAB para la guía rápida: "sería redundante con la
+tab bar flotante y competiría visualmente con ella". Al tocarlo abre un
+bottom sheet de vista previa ("En construcción", burbuja de saludo, input
+deshabilitado) — el bot en sí todavía no existe, esto solo documenta dónde
+vive el acceso. Presente en las tres pantallas.
+
 - [inicio.html](inicio.html) — pantalla Inicio + tab bar flotante de 5 tabs,
   1:1 con el contenido descrito en
   [02-contenido-y-navegacion.md](../02-contenido-y-navegacion.md): hero con

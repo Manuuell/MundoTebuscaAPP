@@ -138,6 +138,49 @@
   .nav-item span { font-size: 9.5px; color: #71717a; white-space: nowrap; }
   .nav-item.active { background: rgba(253,243,236,0.9); }
   .nav-item.active i, .nav-item.active span { color: #9c552e; font-weight: 600; }
+
+  /* Botón de asistente virtual (chatbot) en la cabecera — igual que inicio.html.
+     Ícono en la cabecera, no FAB, para no competir con la tab bar flotante
+     (mismo criterio que ya descartó un FAB para la guía rápida en doc 09 §6). */
+  .bot-btn {
+    width: 30px; height: 30px; border-radius: 999px; display: flex; align-items: center;
+    justify-content: center; background: #fdf3ec; color: #9c552e; flex-shrink: 0; border: none;
+    cursor: pointer; transition: transform .12s ease-out; padding: 0;
+  }
+  .bot-btn:active { transform: scale(0.94); }
+  .bot-btn svg { width: 17px; height: 17px; }
+  .bot-sheet-overlay {
+    position: absolute; inset: 0; background: rgba(16,24,40,0.35); z-index: 30;
+    display: flex; align-items: flex-end; opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  .bot-sheet-overlay.open { opacity: 1; pointer-events: auto; }
+  .bot-sheet {
+    width: 100%; background: #fff; border-radius: 24px 24px 0 0; padding: 10px 18px 22px;
+    transform: translateY(100%); transition: transform .32s cubic-bezier(.32,.72,0,1);
+  }
+  .bot-sheet-overlay.open .bot-sheet { transform: translateY(0); }
+  .bot-sheet-handle { width: 36px; height: 4px; border-radius: 999px; background: #e4e4e7; margin: 0 auto 14px; }
+  .bot-sheet-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .bot-avatar-lg {
+    width: 38px; height: 38px; border-radius: 999px; background: #fdf3ec; color: #9c552e;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .bot-avatar-lg svg { width: 22px; height: 22px; }
+  .bot-sheet-title { font-family: 'Signika', sans-serif; font-size: 14px; font-weight: 600; color: #1d1b40; }
+  .bot-sheet-sub { font-size: 10px; color: #a1a1aa; }
+  .bot-bubble {
+    background: #f4f4f8; border-radius: 14px 14px 14px 4px; padding: 10px 12px; font-size: 12px;
+    color: #3f3f46; line-height: 1.5; max-width: 88%;
+  }
+  .bot-input-wrap { display: flex; gap: 8px; margin-top: 14px; }
+  .bot-input-wrap input {
+    flex: 1; border: 1px solid #e4e4e7; border-radius: 999px; padding: 9px 14px; font-size: 12px;
+    font-family: 'Figtree', sans-serif; color: #a1a1aa; background: #fafafa;
+  }
+  .bot-input-wrap button {
+    width: 38px; height: 38px; border-radius: 999px; border: none; background: #e4e4e7; color: #a1a1aa;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
 </style>
 </head>
 <body>
@@ -147,7 +190,17 @@
   <div class="topbar">
     <i class="ti ti-arrow-left" aria-hidden="true"></i>
     <div class="title">Se busca</div>
-    <i class="ti ti-dots-vertical" aria-hidden="true"></i>
+    <button class="bot-btn" onclick="openBotSheet()" aria-label="Abrir asistente virtual">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M12 2.5V5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        <circle cx="12" cy="2" r="1.1" fill="currentColor"/>
+        <rect x="4" y="5" width="16" height="13" rx="5" stroke="currentColor" stroke-width="1.6"/>
+        <path d="M2.3 10.5v3M21.7 10.5v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        <circle cx="9" cy="11.7" r="1.3" fill="currentColor"/>
+        <circle cx="15" cy="11.7" r="1.3" fill="currentColor"/>
+        <path d="M9 15.2c1.1.9 2.9.9 4 0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+      </svg>
+    </button>
   </div>
 
   <div class="search-wrap">
@@ -255,9 +308,40 @@
     <div class="nav-item"><i class="ti ti-settings" aria-hidden="true"></i><span>Ajustes</span></div>
   </div>
 
+  <!-- Sheet del asistente virtual: preview de a dónde lleva el ícono de la cabecera -->
+  <div class="bot-sheet-overlay" id="botSheetOverlay" onclick="if(event.target===this) closeBotSheet()">
+    <div class="bot-sheet">
+      <div class="bot-sheet-handle"></div>
+      <div class="bot-sheet-header">
+        <div class="bot-avatar-lg">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 2.5V5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+            <circle cx="12" cy="2" r="1.1" fill="currentColor"/>
+            <rect x="4" y="5" width="16" height="13" rx="5" stroke="currentColor" stroke-width="1.6"/>
+            <path d="M2.3 10.5v3M21.7 10.5v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+            <circle cx="9" cy="11.7" r="1.3" fill="currentColor"/>
+            <circle cx="15" cy="11.7" r="1.3" fill="currentColor"/>
+            <path d="M9 15.2c1.1.9 2.9.9 4 0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div>
+          <div class="bot-sheet-title">Asistente</div>
+          <div class="bot-sheet-sub">En construcción</div>
+        </div>
+      </div>
+      <div class="bot-bubble">Hola 👋 Pronto voy a poder ayudarte a encontrar información rápido. Por ahora esto es solo una vista previa.</div>
+      <div class="bot-input-wrap">
+        <input placeholder="Escribe tu mensaje..." disabled>
+        <button disabled><i class="ti ti-send" aria-hidden="true"></i></button>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script>
+  function openBotSheet() { document.getElementById('botSheetOverlay').classList.add('open'); }
+  function closeBotSheet() { document.getElementById('botSheetOverlay').classList.remove('open'); }
   const personas = [
     {
       desc: 'Hombre, entre 30 y 40 años. Camisa azul, cicatriz pequeña sobre la ceja izquierda. Encontrado consciente, sin poder dar su nombre.',
