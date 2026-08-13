@@ -400,6 +400,87 @@ async function manejarPublicar(req, res, cors, datos) {
   }
 }
 
+// ── Traduccion de titulares ──────────────────────────────────────────────────
+// GDELT trae casi toda la prensa sobre estas emergencias en ingles; la web lo
+// resuelve traduciendo en su servidor (translateTitles en src/lib/news.ts) y
+// la app necesita el equivalente aqui, por la misma razon que el chat: la
+// llave no puede viajar en el binario.
+//
+// Cache por titular: las mismas notas se repiten entre clientes y entre
+// refrescos durante horas, y cada traduccion repetida seria gasto puro.
+const TRADUCCIONES_TTL_MS = 6 * 60 * 60 * 1000;
+const traducciones = new Map(); // titulo original -> { texto, cuando }
+
+setInterval(() => {
+  const ahora = Date.now();
+  for (const [k, v] of traducciones) {
+    if (ahora - v.cuando > TRADUCCIONES_TTL_MS) traducciones.delete(k);
+  }
+}, 600_000).unref();
+
+async function traducirTitulares(titulares) {
+  const resultado = {};
+  const pendientes = [];
+
+  for (const { id, title } of titulares) {
+    const guardada = traducciones.get(title);
+    if (guardada && Date.now() - guardada.cuando < TRADUCCIONES_TTL_MS) {
+      resultado[id] = guardada.texto;
+    } else {
+      pendientes.push({ id, title });
+    }
+  }
+  if (pendientes.length === 0) return resultado;
+
+  const upstream = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${OPENAI_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: MODELO,
+      temperature: 0,
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'system',
+          // El mismo encargo que usa la web: traducir sin agregar ni quitar.
+          content:
+            'Traduces titulares de prensa al espanol neutro, manteniendo el '
+            + 'sentido y el tono periodistico, sin agregar ni quitar '
+            + 'informacion. Recibes un array JSON de {id, title}. Respondes '
+            + 'SOLO con {"traducciones": {"<id>": "<titular traducido>", ...}}, '
+            + 'una entrada por cada id recibido.',
+        },
+        { role: 'user', content: JSON.stringify(pendientes) },
+      ],
+    }),
+  });
+
+  if (!upstream.ok) {
+    console.error('[asistente] traduccion OpenAI respondio', upstream.status);
+    return resultado; // lo cacheado ya recogido; el resto queda sin traducir
+  }
+
+  const datos = await upstream.json();
+  let nuevas = {};
+  try {
+    nuevas = JSON.parse(datos.choices?.[0]?.message?.content || '{}').traducciones || {};
+  } catch {
+    return resultado;
+  }
+
+  for (const { id, title } of pendientes) {
+    const texto = nuevas[id];
+    if (typeof texto === 'string' && texto.trim()) {
+      resultado[id] = texto.trim();
+      traducciones.set(title, { texto: resultado[id], cuando: Date.now() });
+    }
+  }
+  return resultado;
+}
+
 // ── Servidor ─────────────────────────────────────────────────────────────────
 
 const servidor = http.createServer(async (req, res) => {
@@ -454,6 +535,29 @@ const servidor = http.createServer(async (req, res) => {
   }
   if ((req.url || '').startsWith('/auth')) {
     return manejarLogin(req, res, cors, ip, datos);
+  }
+
+  // POST /traducir: lote de titulares → {traducciones: {id: texto}}.
+  if ((req.url || '').split('?')[0] === '/traducir') {
+    const titulares = (Array.isArray(datos.titulares) ? datos.titulares : [])
+      .filter((t) => t && typeof t.id === 'string' && typeof t.title === 'string')
+      .slice(0, 20)
+      .map((t) => ({ id: t.id.slice(0, 40), title: t.title.slice(0, 300) }));
+
+    if (titulares.length === 0) {
+      return res.writeHead(400, { ...cors, 'Content-Type': 'application/json' })
+        .end(JSON.stringify({ error: 'titulares_invalidos' }));
+    }
+
+    try {
+      const traducidos = await traducirTitulares(titulares);
+      return res.writeHead(200, { ...cors, 'Content-Type': 'application/json' })
+        .end(JSON.stringify({ traducciones: traducidos }));
+    } catch (err) {
+      console.error('[asistente] traduccion excepcion:', err);
+      return res.writeHead(502, { ...cors, 'Content-Type': 'application/json' })
+        .end(JSON.stringify({ error: 'upstream' }));
+    }
   }
 
   const mensajes = Array.isArray(datos.messages) ? datos.messages : [];

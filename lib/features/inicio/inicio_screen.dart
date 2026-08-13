@@ -39,7 +39,13 @@ class InicioScreen extends ConsumerWidget {
           ref.invalidate(noticiasProvider);
         },
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          // El hueco de la tab bar flotante viene del MediaQuery que inyecta
+          // HomeShell, pero un ListView con `padding` propio IGNORA ese inset
+          // (BoxScrollView solo lo aplica cuando no le pasan padding). Sin
+          // sumarlo a mano aqui, el carrusel de noticias queda debajo de la
+          // barra y no hay forma de subirlo con scroll.
+          padding: EdgeInsets.fromLTRB(
+              16, 8, 16, 24 + MediaQuery.paddingOf(context).bottom),
           children: [
             _Hero(pais: pais),
             const SizedBox(height: 20),

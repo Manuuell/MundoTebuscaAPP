@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/config/env.dart';
 import '../core/state/pais_provider.dart';
 import '../core/supabase/supabase_providers.dart';
 import '../core/util/freshness.dart';
@@ -37,6 +38,32 @@ class Noticia {
   final String? idioma;
 
   bool get enEspanol => idioma == null || idioma == 'Spanish';
+
+  /// La misma noticia con el titular traducido. `idioma` se conserva a
+  /// proposito: la nota enlazada sigue en su idioma original y la insignia
+  /// debe seguir avisandolo aunque el titular ya se lea en espanol.
+  Noticia conTitulo(String nuevo) => Noticia(
+        titulo: nuevo,
+        fuente: fuente,
+        url: url,
+        fotoUrl: fotoUrl,
+        resumen: resumen,
+        fecha: fecha,
+        curada: curada,
+        idioma: idioma,
+      );
+}
+
+/// Lo que se pudo reunir, y si alguna fuente se quedo fuera.
+class Noticias {
+  const Noticias(this.lista, {this.agregadorFallo = false});
+
+  final List<Noticia> lista;
+
+  /// El agregador no contesto y tampoco habia nada guardado de antes. Existe
+  /// para no afirmar "no hay noticias" cuando lo cierto es "no pudimos
+  /// consultar": son dos cosas muy distintas, igual que un 0 en las cifras.
+  final bool agregadorFallo;
 }
 
 /// Noticias verificadas.
@@ -61,26 +88,26 @@ class NoticiasRepository {
     've': 'Venezuela (terremoto OR sismo OR temblor)',
   };
 
-  Future<Fresh<List<Noticia>>> recientes({
+  Future<Fresh<Noticias>> recientes({
     required String paisCodigo,
     int limite = 12,
   }) async {
     // En paralelo: si el agregador tarda, la parte curada no espera por el.
-    final resultados = await Future.wait([
+    final (curadas, (deGdelt, fallo)) = await (
       _curadas(paisCodigo),
       _gdelt(paisCodigo, limite),
-    ]);
+    ).wait;
 
     // Orden: curadas, luego espanol, luego el resto. GDELT hoy devuelve casi
     // todo en ingles para estas consultas —la web resuelve eso con GNews, que
     // pide API key y por eso no puede vivir en el cliente— asi que lo poco que
     // llegue en espanol debe ir delante.
-    final agregadas = [...resultados[1]]
+    final agregadas = [...deGdelt]
       ..sort((a, b) {
         if (a.enEspanol != b.enEspanol) return a.enEspanol ? -1 : 1;
         return (b.fecha ?? DateTime(0)).compareTo(a.fecha ?? DateTime(0));
       });
-    final todas = [...resultados[0], ...agregadas];
+    final todas = [...curadas, ...agregadas];
 
     // GDELT devuelve la misma nota replicada por varios medios (teletipos de
     // agencia sobre todo). Sin deduplicar, el carrusel muestra cuatro veces
@@ -92,7 +119,10 @@ class NoticiasRepository {
       if (clave.isEmpty || vistos.add(clave)) unicas.add(n);
     }
 
-    return Fresh.now(unicas.take(limite).toList(growable: false));
+    return Fresh.now(Noticias(
+      unicas.take(limite).toList(growable: false),
+      agregadorFallo: fallo,
+    ));
   }
 
   Future<List<Noticia>> _curadas(String paisCodigo) async {
@@ -126,14 +156,16 @@ class NoticiasRepository {
   static final _cache = <String, (DateTime, List<Noticia>)>{};
   static const _vidaCache = Duration(minutes: 10);
 
-  Future<List<Noticia>> _gdelt(String paisCodigo, int limite) async {
+  Future<(List<Noticia>, bool)> _gdelt(String paisCodigo, int limite) async {
     final consulta = _consultas[paisCodigo];
-    if (consulta == null) return const [];
+    // Un pais sin consulta definida no es un fallo: simplemente no tiene
+    // agregador, y lo curado se muestra igual.
+    if (consulta == null) return (const <Noticia>[], false);
 
     final guardado = _cache[paisCodigo];
     if (guardado != null &&
         DateTime.now().difference(guardado.$1) < _vidaCache) {
-      return guardado.$2;
+      return (guardado.$2, false);
     }
 
     try {
@@ -146,9 +178,17 @@ class NoticiasRepository {
       final res = await http.get(uri, headers: {
         // GDELT rechaza peticiones sin user-agent identificable.
         'user-agent': 'Mozilla/5.0 (compatible; ElMundoTeBusca/1.0)',
-      }).timeout(const Duration(seconds: 15));
+      })
+          // Medido contra la API real: tarda entre 12 y 15 segundos en
+          // contestar, tanto si responde bien como si responde 429. Con el
+          // limite justo en 15 s la peticion se cortaba sola casi siempre,
+          // antes de llegar a leer la respuesta.
+          .timeout(const Duration(seconds: 25));
 
-      if (res.statusCode != 200) return const [];
+      // 429 ("una peticion cada 5 segundos") es su respuesta mas frecuente,
+      // no un caso raro. Tratarla como "no hay noticias" tiraba una lista
+      // buena que seguia sirviendo.
+      if (res.statusCode != 200) return _respaldo(paisCodigo);
 
       final datos = jsonDecode(res.body) as Map<String, dynamic>;
       final articulos = (datos['articles'] as List?) ?? const [];
@@ -168,19 +208,90 @@ class NoticiasRepository {
           .where((n) => n.titulo.isNotEmpty)
           .toList(growable: false);
 
-      _cache[paisCodigo] = (DateTime.now(), lista);
-      return lista;
+      // Se traduce ANTES de cachear: asi las traducciones viajan con la
+      // lista durante los 10 minutos de vida del cache en vez de pagarse en
+      // cada refresco.
+      final traducida = await _traducirTitulos(lista);
+
+      _cache[paisCodigo] = (DateTime.now(), traducida);
+      return (traducida, false);
     } catch (_) {
-      // Sin red, o con 429 del agregador, se queda con lo ultimo que se pudo
-      // traer; y si no hay nada, con las curadas.
-      return _cache[paisCodigo]?.$2 ?? const [];
+      // Sin red, o si la peticion se corta, se queda con lo ultimo que se
+      // pudo traer; y si no hay nada, con las curadas.
+      return _respaldo(paisCodigo);
     }
   }
 
+  /// Titulares en espanol via el proxy del asistente (`server/asistente`,
+  /// POST /traducir) — el equivalente movil de `translateTitles` en
+  /// `src/lib/news.ts` de la web, y por la misma razon en un servidor: la
+  /// llave de OpenAI no puede viajar en el binario.
+  ///
+  /// Nunca bloquea el carrusel: sin proxy configurado, o si la llamada falla,
+  /// los titulares se quedan en su idioma original (con su insignia EN/PT/...
+  /// avisando, como hasta ahora).
+  Future<List<Noticia>> _traducirTitulos(List<Noticia> lista) async {
+    if (Env.asistenteUrl.isEmpty) return lista;
+
+    final indices = [
+      for (var i = 0; i < lista.length; i++)
+        if (!lista[i].enEspanol) i,
+    ];
+    if (indices.isEmpty) return lista;
+
+    try {
+      final uri = Uri.parse(Env.asistenteUrl).resolve('/traducir');
+      final res = await http
+          .post(
+            uri,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'titulares': [
+                for (final i in indices) {'id': '$i', 'title': lista[i].titulo},
+              ],
+            }),
+          )
+          // Un lote de ~10 titulares tarda varios segundos; la web ya
+          // aprendio que un limite corto corta la respuesta a mitad.
+          .timeout(const Duration(seconds: 20));
+
+      if (res.statusCode != 200) return lista;
+
+      final cuerpo = jsonDecode(res.body) as Map<String, dynamic>;
+      final traducciones =
+          (cuerpo['traducciones'] as Map?)?.cast<String, dynamic>() ?? const {};
+      if (traducciones.isEmpty) return lista;
+
+      final copia = [...lista];
+      for (final i in indices) {
+        final t = traducciones['$i'];
+        if (t is String && t.trim().isNotEmpty) {
+          copia[i] = copia[i].conTitulo(t.trim());
+        }
+      }
+      return copia;
+    } catch (_) {
+      return lista;
+    }
+  }
+
+  /// La ultima lista buena aunque este vencida — una noticia de hace unas
+  /// horas sigue siendo cierta —, y si nunca hubo ninguna, el aviso de que la
+  /// consulta fallo para que la UI no lo cuente como "no hay noticias".
+  (List<Noticia>, bool) _respaldo(String paisCodigo) {
+    final guardado = _cache[paisCodigo];
+    return guardado == null ? (const <Noticia>[], true) : (guardado.$2, false);
+  }
+
   /// GDELT devuelve los titulos tokenizados: "AP News in Brief at 6 : 04 a . m".
+  ///
+  /// Con `replaceAll` el `$1` NO es el grupo capturado —eso es de JavaScript;
+  /// Dart mete esos dos caracteres tal cual— y el titular terminaba peor de lo
+  /// que entro: "at 6$1 04 a$1 m$1 EDT". Para leer un grupo hace falta
+  /// `replaceAllMapped`.
   static String _limpiarTitulo(String t) {
     return t
-        .replaceAll(RegExp(r'\s+([,.:;!?])'), r'$1')
+        .replaceAllMapped(RegExp(r'\s+([,.:;!?])'), (m) => m[1]!)
         .replaceAll(RegExp(r'\s{2,}'), ' ')
         .trim();
   }
@@ -202,7 +313,7 @@ final noticiasRepositoryProvider = Provider<NoticiasRepository>((ref) {
   return NoticiasRepository(ref.watch(supabaseClientProvider));
 });
 
-final noticiasProvider = FutureProvider<Fresh<List<Noticia>>>((ref) async {
+final noticiasProvider = FutureProvider<Fresh<Noticias>>((ref) async {
   final pais = ref.watch(paisProvider);
   return ref.watch(noticiasRepositoryProvider).recientes(paisCodigo: pais.codigo);
 });

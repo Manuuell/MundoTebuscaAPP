@@ -32,20 +32,28 @@ class NoticiasCarrusel extends ConsumerWidget {
           error: (_, _) => const _Aviso(
               texto: 'No pudimos cargar las noticias ahora mismo.'),
           data: (fresh) {
-            if (fresh.data.isEmpty) {
-              return const _Aviso(
-                  texto: 'No hay noticias recientes para esta emergencia.');
+            final lista = fresh.data.lista;
+            if (lista.isEmpty) {
+              // "No hay noticias" afirma algo sobre la emergencia; "no pudimos
+              // consultar" habla de nosotros. Decir lo primero cuando pasa lo
+              // segundo es mentir, aunque sea sin querer.
+              return _Aviso(
+                texto: fresh.data.agregadorFallo
+                    ? 'No pudimos consultar las noticias ahora mismo. '
+                        'Desliza para reintentar.'
+                    : 'No hay noticias recientes para esta emergencia.',
+              );
             }
             return SizedBox(
               height: 250,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 clipBehavior: Clip.none,
-                itemCount: fresh.data.length,
+                itemCount: lista.length,
                 separatorBuilder: (_, _) => const SizedBox(width: 12),
                 itemBuilder: (_, i) => MTEntrada(
                   indice: i,
-                  child: _Tarjeta(noticia: fresh.data[i]),
+                  child: _Tarjeta(noticia: lista[i]),
                 ),
               ),
             );
