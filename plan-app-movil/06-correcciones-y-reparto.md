@@ -10,6 +10,14 @@ la app web completa, en 3 partes que no se pisan entre sí.
 No repite nada de `01-05` (arquitectura, contenido/navegación, roadmap, tema
 visual, fuente web) — ya están decididos, léanlos si no lo han hecho.
 
+**Investigación técnica de apoyo**: [`investigacion-tecnica/`](investigacion-tecnica/)
+tiene 8 documentos a fondo (con research web + verificación contra el código
+real) sobre todo lo que faltaba resolver técnicamente — Edge Function de
+escritura segura, deep linking real, mapa con `flutter_map`, estado/Riverpod,
+fotos/push, sistema visual/accesibilidad, testing/distribución para demostrar
+la app HOY, y multi-país en Dart. El índice de ahí dice cuál le toca a
+quién.
+
 ---
 
 ## Parte 1 — Corrección de esquema (aplicar primero, ~20-30 min, quien la vea libre la toma)
@@ -117,7 +125,12 @@ Commits chicos y frecuentes, push seguido.
   contenido real): conectar las capas a `aid_points`/`hospitals`/`marches` con
   coordenadas reales, marcadores por tipo, rescates y zona/epicentro si hay
   esos datos en la web (revisar `CrisisMap.tsx` del repo web para la lista
-  completa de capas).
+  completa de capas). Ver [`investigacion-tecnica/03-mapa-flutter.md`](investigacion-tecnica/03-mapa-flutter.md)
+  para el setup exacto de tiles (confirmado: CartoDB Voyager, mismo que la
+  web) y clustering — **incluye una advertencia real: los basemaps de CARTO
+  pueden requerir licencia para uso comercial; como plataforma sin fines de
+  lucro vale la pena pedir su programa de donación** (aplica también a la web,
+  que hoy los usa sin atribuir a CARTO, solo a OSM).
 
 ### 👤 Persona C — Backend compartido, deep linking, cuentas y lo que falta
 
@@ -127,17 +140,33 @@ escribir datos (Fase 2), y lo que nadie más puede tocar sin pisarse.
 - **Edge Function delgada de validación de escrituras** — es lo que
   desbloquea Fase 2 para A y B (crear persona, reportar estado, crear post,
   votar, subir foto). Sin esto, A y B solo pueden avanzar en lectura. Prioridad
-  máxima de esta parte. (Está en investigación profunda en paralelo — llega un
-  documento técnico aparte con el diseño exacto; mientras tanto puede empezar
-  por el esqueleto del proyecto Supabase Edge Functions y una función de
-  prueba end-to-end).
+  máxima de esta parte. Diseño completo ya investigado en
+  [`investigacion-tecnica/01-escritura-segura.md`](investigacion-tecnica/01-escritura-segura.md):
+  **NO abrir políticas RLS de insert/update nuevas** (la web ya tuvo escritura
+  pública con `anon` y la quitó a propósito por abuso, ver
+  `supabase/schema.sql:615-619` del repo web — no repetir ese error). Una sola
+  Edge Function `mutate` con router interno por `action`, `service_role`,
+  auth vía sign-in anónimo de Supabase Auth (`signInAnonymously`, el SDK
+  adjunta el JWT solo), rate limiting con una tabla Postgres +
+  `security definer` (sin depender de Redis para empezar). Pseudocódigo Deno
+  completo en ese documento — es prácticamente para copiar y adaptar.
 - **App Attest (iOS) / Play Integrity (Android)** — verificación server-side,
-  depende de la Edge Function de arriba.
+  depende de la Edge Function de arriba. Flujo exacto (App Attest: CBOR/COSE
+  100% local en la función, sin llamada obligatoria a Apple; Play Integrity:
+  sí requiere llamada servidor→Google con cuenta de servicio) en el mismo
+  documento, sección 3.
 - **Deep linking real**: `assetlinks.json` / `apple-app-site-association` —
   **estos archivos van en el REPO WEB** (`elmundotebusca.com/.well-known/`,
   repo `Angelsistemas7/ElMundo-Te-Busca`), no en este repo Flutter. Requiere
   el SHA256 del certificado de firma Android y el Team ID de Apple — si nadie
   los tiene todavía a mano, dejarlo con un placeholder documentado y avisar.
+  Todo el detalle (contenido exacto de los 2 archivos, Route Handler de
+  Next.js recomendado, `AndroidManifest.xml`/`Info.plist`, y un fallback de
+  custom scheme `elmundotebusca://` para probar el ruteo de `go_router` HOY
+  sin esperar esos datos) en
+  [`investigacion-tecnica/02-deep-linking.md`](investigacion-tecnica/02-deep-linking.md).
+  Ojo: WhatsApp (canal real de los enlaces hoy) no abre custom schemes, así
+  que ese fallback prueba el router pero no el flujo end-to-end real.
 - **Validación del token de gestión** (`persona_gestion_screen.dart` ya tiene
   el TODO explícito: "el token NO se valida en el cliente"): implementar el
   endpoint/Edge Function que replica `verifyResourceOwner`
@@ -168,3 +197,23 @@ Si dos partes tocan sin querer el mismo archivo (más probable en
 `app_router.dart` al agregar rutas nuevas como Hospitales/Noticias), avisarse
 antes de mergear — es un archivo compartido por diseño, no se puede evitar del
 todo.
+
+## Cómo mostrar esto HOY (sin tienda)
+
+Investigado a fondo en
+[`investigacion-tecnica/07-testing-distribucion.md`](investigacion-tecnica/07-testing-distribucion.md).
+Resumen que cambia el plan si alguien asumía lo contrario:
+
+- **Android**: trivial — compartir el APK de debug directo (WhatsApp/Drive) o
+  Firebase App Distribution (gratis). Minutos, no horas.
+- **iOS**: **no hay atajo gratis para mostrarlo en un iPhone que no sea el del
+  compañero con Mac conectado por cable a Xcode.** TestFlight exige cuenta
+  Apple Developer de pago ($99/año) incluso para testers internos — y Firebase
+  App Distribution tampoco lo evita en iOS (igual pide esa cuenta + registrar
+  el UDID de cada iPhone). Si hay que enseñarlo hoy en un iPhone que no sea el
+  de desarrollo, la única vía real es una videollamada con el simulador o el
+  propio Mac.
+
+No usar `flutter_dotenv`/`.env` para la URL y `anon key` de Supabase (queda
+legible dentro del APK descomprimido) — usar `--dart-define` como ya hace el
+README, o `--dart-define-from-file` con un archivo fuera de git.
