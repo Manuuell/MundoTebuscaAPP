@@ -117,4 +117,33 @@ void main() {
       expect(p.descripcion, isNot(contains('sin confirmar')));
     });
   });
+
+  group('PuntoAyuda.desdeHospitalOsm', () {
+    // Lo importado de OpenStreetMap dice donde esta un hospital, nunca como
+    // esta hoy. La fila no tiene ni columna de estado, y aun asi conviene
+    // fijar que la pantalla no se lo inventa.
+    test('nunca afirma un estado, tenga urgencias o no', () {
+      for (final urgencias in [true, false]) {
+        final p = PuntoAyuda.desdeHospitalOsm({
+          'id': 'z',
+          'name': 'ESE Hospital San José',
+          'has_emergency': urgencias,
+          'country': 'co',
+        });
+
+        expect(p.descripcion, contains('Estado sin confirmar'));
+        expect(p.tipo, TipoPunto.hospital);
+      }
+    });
+
+    test('marca las urgencias, que es lo unico que trae la fuente', () {
+      final con = PuntoAyuda.desdeHospitalOsm(
+          {'id': 'a', 'name': 'H', 'has_emergency': true, 'country': 'co'});
+      final sin = PuntoAyuda.desdeHospitalOsm(
+          {'id': 'b', 'name': 'H', 'has_emergency': false, 'country': 'co'});
+
+      expect(con.descripcion, contains('Con urgencias'));
+      expect(sin.descripcion, isNot(contains('Con urgencias')));
+    });
+  });
 }
