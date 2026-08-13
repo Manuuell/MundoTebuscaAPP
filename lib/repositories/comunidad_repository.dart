@@ -41,6 +41,35 @@ class ComunidadRepository {
     return Fresh.now(rows.map(Publicacion.fromMap).toList(growable: false));
   }
 
+  /// Comentarios de una publicacion, hilo completo.
+  ///
+  /// `comments` es polimorfica (`entity_type` + `entity_id`), asi que hay que
+  /// filtrar por tipo: sin eso salen tambien los comentarios de personas y de
+  /// puntos de ayuda mezclados con los del post.
+  Future<Fresh<List<Comentario>>> comentarios(String publicacionId) async {
+    final rows = await _db
+        .from('comments')
+        .select()
+        .eq('entity_type', 'post')
+        .eq('entity_id', publicacionId)
+        .order('created_at', ascending: true);
+
+    return Fresh.now(rows.map(Comentario.fromMap).toList(growable: false));
+  }
+
+  /// Cuantos comentarios tiene una publicacion.
+  Future<int> contarComentarios(String publicacionId) async {
+    try {
+      return await _db
+          .from('comments')
+          .count(CountOption.exact)
+          .eq('entity_type', 'post')
+          .eq('entity_id', publicacionId);
+    } catch (_) {
+      return 0;
+    }
+  }
+
   Future<Fresh<List<Denuncia>>> denuncias({
     required String paisCodigo,
     int limite = 40,

@@ -217,3 +217,51 @@ class Caravana {
         whatsappUrl: m['whatsapp_url'] as String?,
       );
 }
+
+/// Comentario de una publicacion (tabla `comments`).
+///
+/// La tabla es polimorfica: `entity_type` + `entity_id` apuntan a lo comentado
+/// (hoy `post`, pero el mismo mecanismo sirve para personas o puntos de ayuda).
+class Comentario {
+  const Comentario({
+    required this.id,
+    required this.cuerpo,
+    this.autor,
+    this.padreId,
+    this.fotoUrl,
+    this.likes = 0,
+    this.usuarioId,
+    this.creadoEn,
+  });
+
+  final String id;
+  final String cuerpo;
+  final String? autor;
+
+  /// Respuesta a otro comentario del mismo hilo.
+  final String? padreId;
+
+  final String? fotoUrl;
+  final int likes;
+
+  /// Hoy siempre null: nadie tiene cuenta todavia. Cuando exista la Fase 3 es
+  /// lo que permite saber a quien avisar de una respuesta.
+  final String? usuarioId;
+
+  final DateTime? creadoEn;
+
+  bool get esRespuesta => padreId != null;
+
+  factory Comentario.fromMap(Map<String, dynamic> m) => Comentario(
+        id: m['id'].toString(),
+        cuerpo: (m['body'] ?? '') as String,
+        autor: m['author_name'] as String?,
+        padreId: m['parent_id']?.toString(),
+        fotoUrl: m['photo_url'] as String?,
+        likes: (m['likes'] as num?)?.toInt() ?? 0,
+        usuarioId: m['user_id']?.toString(),
+        creadoEn: m['created_at'] == null
+            ? null
+            : DateTime.tryParse(m['created_at'].toString()),
+      );
+}

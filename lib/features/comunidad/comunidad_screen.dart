@@ -6,23 +6,33 @@ import '../../core/theme/app_colors.dart';
 import '../../core/util/freshness.dart';
 import '../../models/publicacion.dart';
 import 'comunidad_providers.dart';
+import 'publicacion_detalle_screen.dart';
+import 'widgets/novedades_sheet.dart';
 import 'widgets/publicacion_card.dart';
 
 /// Comunidad.
 ///
 /// Agrupa el muro, voluntarios, caravanas y denuncias — no son tabs primarios
 /// de la app, son subsecciones de aqui (`COMMUNITY_PATHS` en `MobileNav.tsx`).
-class ComunidadScreen extends StatelessWidget {
+class ComunidadScreen extends ConsumerWidget {
   const ComunidadScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return DefaultTabController(
       length: 4,
       child: Scaffold(
         backgroundColor: AppColors.bgBase,
         appBar: AppBar(
           title: const Text('Comunidad'),
+          actions: [
+            const _BotonNovedades(),
+            // El filtro solo aplica al muro, pero vive en la cabecera para no
+            // robarle una franja de alto al feed: con la fila de chips, en un
+            // telefono normal apenas entraban dos publicaciones por pantalla.
+            const _BotonFiltros(),
+            const SizedBox(width: 4),
+          ],
           bottom: const TabBar(
             isScrollable: true,
             tabAlignment: TabAlignment.start,
@@ -50,6 +60,155 @@ class ComunidadScreen extends StatelessWidget {
   }
 }
 
+/// Campana con contador de novedades sin ver.
+class _BotonNovedades extends ConsumerWidget {
+  const _BotonNovedades();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final sinVer = ref.watch(sinVerProvider).valueOrNull ?? 0;
+
+    return Stack(
+      children: [
+        IconButton(
+          tooltip: 'Novedades',
+          onPressed: () => mostrarNovedades(context, ref),
+          icon: Icon(
+            sinVer > 0
+                ? Icons.notifications_rounded
+                : Icons.notifications_none_rounded,
+            color: sinVer > 0 ? AppColors.brand700 : AppColors.muted,
+          ),
+        ),
+        if (sinVer > 0)
+          // IgnorePointer: el `Text` del badge contesta que si al hit test
+          // (RenderParagraph siempre lo hace, para poder seleccionar texto),
+          // asi que sin esto tocar justo el numero no abre nada y tocar el
+          // borde si — parece que el boton falla de forma intermitente.
+          Positioned(
+            right: 6,
+            top: 6,
+            child: IgnorePointer(
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                constraints:
+                    const BoxConstraints(minWidth: 18, minHeight: 18),
+                decoration: const BoxDecoration(
+                    color: AppColors.danger500, shape: BoxShape.circle),
+                child: Text(
+                  sinVer > 9 ? '9+' : '$sinVer',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// Filtros del muro, en una hoja en vez de una fila de chips.
+class _BotonFiltros extends ConsumerWidget {
+  const _BotonFiltros();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final filtro = ref.watch(filtroTipoProvider);
+    final activo = filtro != null;
+
+    return Stack(
+      children: [
+        IconButton(
+          tooltip: 'Filtros',
+          onPressed: () => _abrir(context, ref),
+          icon: Icon(
+            activo ? Icons.filter_alt_rounded : Icons.filter_alt_outlined,
+            color: activo ? AppColors.brand700 : AppColors.muted,
+          ),
+        ),
+        if (activo)
+          Positioned(
+            right: 10,
+            top: 10,
+            child: IgnorePointer(
+              child: Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                    color: filtro.color, shape: BoxShape.circle),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _abrir(BuildContext context, WidgetRef ref) {
+    return showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => Consumer(
+        builder: (_, sheetRef, _) {
+          final actual = sheetRef.watch(filtroTipoProvider);
+
+          void elegir(TipoPublicacion? t) {
+            sheetRef.read(filtroTipoProvider.notifier).state = t;
+            Navigator.pop(sheetContext);
+          }
+
+          return SafeArea(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
+                    child: Text('Filtrar publicaciones',
+                        style:
+                            Theme.of(sheetContext).textTheme.titleLarge),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
+                    child: Text('Elige que tipo quieres ver en el muro.',
+                        style: TextStyle(color: AppColors.muted)),
+                  ),
+                  RadioGroup<TipoPublicacion?>(
+                    groupValue: actual,
+                    onChanged: elegir,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const ListTile(
+                          leading: Icon(Icons.all_inclusive_rounded,
+                              color: AppColors.navy700),
+                          title: Text('Todo'),
+                          trailing: Radio<TipoPublicacion?>(value: null),
+                        ),
+                        for (final t in TipoPublicacion.values)
+                          ListTile(
+                            leading: Icon(t.icono, color: t.color),
+                            title: Text(t.etiqueta),
+                            trailing: Radio<TipoPublicacion?>(value: t),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
 // ── Muro ─────────────────────────────────────────────────────────────────────
 
 class _MuroTab extends ConsumerWidget {
@@ -62,40 +221,48 @@ class _MuroTab extends ConsumerWidget {
 
     return Column(
       children: [
-        SizedBox(
-          height: 52,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            children: [
-              FilterChip(
-                label: const Text('Todo'),
-                selected: filtro == null,
-                onSelected: (_) =>
-                    ref.read(filtroTipoProvider.notifier).state = null,
-              ),
-              const SizedBox(width: 8),
-              for (final t in TipoPublicacion.values) ...[
-                FilterChip(
-                  avatar: Icon(t.icono, size: 16, color: t.color),
-                  label: Text(t.etiqueta),
-                  selected: filtro == t,
-                  selectedColor: t.color.withValues(alpha: 0.15),
-                  onSelected: (sel) => ref
-                      .read(filtroTipoProvider.notifier)
-                      .state = sel ? t : null,
-                ),
+        // Con un filtro puesto, el feed solo muestra un tipo. Sin este aviso
+        // "no hay publicaciones" se lee como que la emergencia esta vacia, no
+        // como que hay un filtro activo.
+        if (filtro != null)
+          Container(
+            width: double.infinity,
+            color: filtro.color.withValues(alpha: 0.10),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                Icon(filtro.icono, size: 16, color: filtro.color),
                 const SizedBox(width: 8),
+                Expanded(
+                  child: Text('Viendo solo: ${filtro.etiqueta}',
+                      style: TextStyle(
+                          fontSize: 13,
+                          color: filtro.color,
+                          fontWeight: FontWeight.w600)),
+                ),
+                TextButton(
+                  onPressed: () =>
+                      ref.read(filtroTipoProvider.notifier).state = null,
+                  child: const Text('Quitar'),
+                ),
               ],
-            ],
+            ),
           ),
-        ),
         Expanded(
           child: _Lista<Publicacion>(
             valor: muro,
             alRecargar: () => ref.invalidate(muroProvider),
-            vacio: 'Todavia no hay publicaciones con este filtro.',
-            constructor: (p) => PublicacionCard(publicacion: p),
+            vacio: filtro == null
+                ? 'Todavia no hay publicaciones en esta emergencia.'
+                : 'No hay publicaciones de tipo "${filtro.etiqueta}".',
+            constructor: (p) => PublicacionCard(
+              publicacion: p,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => PublicacionDetalleScreen(publicacion: p),
+                ),
+              ),
+            ),
             conPadding: false,
           ),
         ),

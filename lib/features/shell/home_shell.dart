@@ -20,7 +20,7 @@ class HomeShell extends StatelessWidget {
     _Tab('Se busca', Icons.search_outlined, Icons.search_rounded),
     _Tab('Comunidad', Icons.people_outline, Icons.people_rounded),
     _Tab('Mapa', Icons.map_outlined, Icons.map_rounded),
-    _Tab('SOS', Icons.emergency_outlined, Icons.emergency_rounded),
+    _Tab('Ajustes', Icons.settings_outlined, Icons.settings_rounded),
   ];
 
   @override
@@ -73,6 +73,15 @@ Future<void> mostrarHojaMas(BuildContext context) {
             onTap: () {
               Navigator.pop(sheetContext);
               context.push(Rutas.mascotas);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.emergency_outlined,
+                color: AppColors.danger500),
+            title: const Text('Emergencia y seguridad'),
+            onTap: () {
+              Navigator.pop(sheetContext);
+              context.push(Rutas.sos);
             },
           ),
           const SizedBox(height: 8),

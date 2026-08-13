@@ -10,6 +10,7 @@ import '../../features/persona/persona_detalle_screen.dart';
 import '../../features/persona/persona_gestion_screen.dart';
 import '../../features/se_busca/se_busca_screen.dart';
 import '../../features/shell/home_shell.dart';
+import '../../features/cuenta/configuracion_screen.dart';
 import '../../features/sos/sos_screen.dart';
 import '../../models/persona.dart';
 
@@ -26,6 +27,7 @@ abstract final class Rutas {
   static const comunidad = '/comunidad';
   static const mapa = '/mapa';
   static const sos = '/emergencias';
+  static const configuracion = '/configuracion';
 
   // Fuera de los tabs: se apilan encima.
   static const ayuda = '/ayuda';
@@ -78,8 +80,8 @@ GoRouter buildRouter() {
           ]),
           StatefulShellBranch(routes: [
             GoRoute(
-              path: Rutas.sos,
-              builder: (_, _) => const SosScreen(),
+              path: Rutas.configuracion,
+              builder: (_, _) => const ConfiguracionScreen(),
             ),
           ]),
         ],
@@ -95,6 +97,14 @@ GoRouter buildRouter() {
         path: Rutas.mascotas,
         parentNavigatorKey: _rootKey,
         builder: (_, _) => const MascotasScreen(),
+      ),
+      // SOS deja de ser pestana pero conserva su ruta: la comparte la web y
+      // se alcanza desde la hoja "Mas". La linea de emergencia ademas sigue
+      // arriba del todo en Configuracion.
+      GoRoute(
+        path: Rutas.sos,
+        parentNavigatorKey: _rootKey,
+        builder: (_, _) => const SosScreen(),
       ),
 
       // Ficha de una persona y su enlace de gestion con token.
