@@ -96,6 +96,17 @@ Future<void> mostrarHojaMas(BuildContext context) {
         mainAxisSize: MainAxisSize.min,
         children: [
           ListTile(
+            leading: const Icon(Icons.person_outline_rounded,
+                color: AppColors.brand700),
+            title: const Text('Mi perfil'),
+            subtitle: const Text('Tu foto y tu actividad'),
+            onTap: () {
+              Navigator.pop(sheetContext);
+              context.push(Rutas.perfil);
+            },
+          ),
+          const Divider(height: 1),
+          ListTile(
             leading: const Icon(Icons.smart_toy_rounded,
                 color: AppColors.brand500),
             title: const Text('Asistente'),

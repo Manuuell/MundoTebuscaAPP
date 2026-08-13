@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../core/theme/app_colors.dart';
 import '../features/cuenta/login_screen.dart';
+import '../features/cuenta/perfil_screen.dart';
 import '../repositories/auth_repository.dart';
 import '../core/router/app_router.dart';
 import 'guia_rapida_sheet.dart';
@@ -102,21 +103,9 @@ class MTHeader extends ConsumerWidget implements PreferredSizeWidget {
         else
           Padding(
             padding: const EdgeInsets.only(right: 14, left: 4),
-            child: CircleAvatar(
-              radius: 16,
-              backgroundColor: AppColors.brand50,
-              child: Text(
-                (usuario.userMetadata?['display_name'] as String? ??
-                        usuario.email ??
-                        '?')
-                    .characters
-                    .first
-                    .toUpperCase(),
-                style: const TextStyle(
-                    color: AppColors.brand700,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 14),
-              ),
+            child: Press(
+              onTap: () => context.push(Rutas.perfil),
+              child: const AvatarUsuario(radio: 16),
             ),
           ),
       ],

@@ -42,18 +42,37 @@ class AuthRepository {
 
   Future<void> salir() => _db.auth.signOut();
 
-  /// Ficha publica del usuario, si la hay.
+  /// Ficha publica del usuario.
   ///
-  /// `profiles` esta vacia hoy: nadie se ha registrado todavia. Si no hay fila
-  /// se devuelve null y la pantalla se apana con los metadatos de la sesion.
+  /// La clave es `user_id`, NO `id` — verificado contra las consultas del
+  /// sitio web. Con `id` la fila nunca aparecia y el perfil salia vacio aunque
+  /// existiera.
+  ///
+  /// Las politicas RLS solo dejan ver el propio perfil, asi que sin sesion
+  /// esto devuelve null aunque la tabla tenga filas.
   Future<Map<String, dynamic>?> perfil() async {
     final u = usuario;
     if (u == null) return null;
     try {
-      return await _db.from('profiles').select().eq('id', u.id).maybeSingle();
+      return await _db
+          .from('profiles')
+          .select('user_id, username, avatar_url, bio')
+          .eq('user_id', u.id)
+          .maybeSingle();
     } catch (_) {
       return null;
     }
+  }
+
+  /// URL de la foto lista para pintar.
+  ///
+  /// `avatar_url` puede venir como URL completa o como ruta dentro del bucket
+  /// de Storage; se resuelven las dos.
+  String? fotoDe(Map<String, dynamic>? perfil) {
+    final crudo = perfil?['avatar_url'] as String?;
+    if (crudo == null || crudo.isEmpty) return null;
+    if (crudo.startsWith('http')) return crudo;
+    return _db.storage.from('avatars').getPublicUrl(crudo);
   }
 }
 
