@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../widgets/boton_publicar.dart';
+import '../../widgets/publicar_sheet.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/util/freshness.dart';
@@ -55,7 +56,7 @@ class ComunidadScreen extends ConsumerWidget {
         floatingActionButton: BotonPublicar(
           icono: Icons.edit_rounded,
           etiqueta: 'Publicar',
-          alTocar: () => _publicar(context),
+          alTocar: () => _publicar(context, ref),
         ),
         body: const TabBarView(
           children: [
@@ -70,34 +71,18 @@ class ComunidadScreen extends ConsumerWidget {
   }
 }
 
-/// Publicar en el muro es una escritura, y la escritura vive en la web. Se
-/// abre alli y se dice antes, en vez de ofrecer un editor que no puede enviar.
-Future<void> _publicar(BuildContext context) async {
-  final seguir = await showDialog<bool>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: const Text('Publicar en Comunidad'),
-      content: const Text(
-        'Publicar se hace por ahora en el sitio web, que se abrira fuera de '
-        'la app.\n\n'
-        'Puedes pedir ayuda, ofrecerla, avisar de un rescate o compartir '
-        'informacion util.',
-      ),
-      actions: [
-        TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar')),
-        FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Abrir el sitio')),
-      ],
-    ),
-  );
+/// Publica en el muro desde la app.
+Future<void> _publicar(BuildContext context, WidgetRef ref) async {
+  final publicado = await mostrarPublicarPost(context);
+  if (!publicado || !context.mounted) return;
 
-  if (seguir == true) {
-    await launchUrl(Uri.parse('https://elmundotebusca.com/comunidad'),
-        mode: LaunchMode.externalApplication);
-  }
+  ref.invalidate(muroProvider);
+  ScaffoldMessenger.of(context)
+    ..clearSnackBars()
+    ..showSnackBar(const SnackBar(
+      content: Text('Publicado. Ya esta en el muro.'),
+      behavior: SnackBarBehavior.floating,
+    ));
 }
 
 /// Campana con contador de novedades sin ver.

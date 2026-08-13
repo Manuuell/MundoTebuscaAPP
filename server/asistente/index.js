@@ -244,6 +244,162 @@ async function manejarLogin(req, res, cors, ip, datos) {
   }
 }
 
+
+// ── Publicar (post de comunidad o ficha de persona) ──────────────────────────
+// La web escribe con service role desde su backend porque quito a proposito la
+// escritura publica con `anon` tras sufrir abuso. Aqui se hace lo mismo: el
+// cliente manda datos, el servidor decide que columnas se escriben.
+//
+// La lista blanca de campos no es formalidad: sin ella, cualquiera podria
+// mandar `verified: true` o `moderation_status: "approved"` en el cuerpo y
+// colar contenido como si lo hubiera revisado alguien.
+
+const publicaciones = new Map();
+const MAX_PUBLICA = 5;          // por usuario
+const VENTANA_PUBLICA = 600_000; // en 10 minutos
+
+function demasiadasPublicaciones(uid) {
+  const ahora = Date.now();
+  const previas = (publicaciones.get(uid) || [])
+    .filter((t) => ahora - t < VENTANA_PUBLICA);
+  if (previas.length >= MAX_PUBLICA) return true;
+  previas.push(ahora);
+  publicaciones.set(uid, previas);
+  return false;
+}
+
+const TIPOS_POST = ['necesito', 'ofrezco', 'rescate', 'medico', 'caravana',
+  'identificar', 'info'];
+const ESTADOS_PERSONA = ['por_localizar', 'hospitalizado', 'localizado',
+  'fallecido'];
+
+function texto(v, max) {
+  return typeof v === 'string' ? v.trim().slice(0, max) : '';
+}
+
+async function manejarPublicar(req, res, cors, datos) {
+  const cabecera = req.headers.authorization || '';
+  if (!cabecera.startsWith('Bearer ')) {
+    return res.writeHead(401, { ...cors, 'Content-Type': 'application/json' })
+      .end(JSON.stringify({ error: 'sin_sesion' }));
+  }
+
+  let uid;
+  try {
+    const quien = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: { apikey: ANON, Authorization: cabecera },
+    });
+    if (!quien.ok) {
+      return res.writeHead(401, { ...cors, 'Content-Type': 'application/json' })
+        .end(JSON.stringify({ error: 'token_invalido' }));
+    }
+    uid = (await quien.json()).id;
+  } catch {
+    return res.writeHead(500, { ...cors, 'Content-Type': 'application/json' })
+      .end(JSON.stringify({ error: 'interno' }));
+  }
+
+  if (demasiadasPublicaciones(uid)) {
+    return res.writeHead(429, { ...cors, 'Content-Type': 'application/json' })
+      .end(JSON.stringify({ error: 'demasiadas_publicaciones' }));
+  }
+
+  const pais = ['co', 've'].includes(datos.country) ? datos.country : null;
+  if (!pais) {
+    return res.writeHead(400, { ...cors, 'Content-Type': 'application/json' })
+      .end(JSON.stringify({ error: 'pais_invalido' }));
+  }
+
+  const autor = texto(datos.author_name, 80) || 'Anonimo';
+  let tabla;
+  let fila;
+
+  if (datos.tipo === 'post') {
+    const cuerpo = texto(datos.body, 2000);
+    if (cuerpo.length < 10) {
+      return res.writeHead(400, { ...cors, 'Content-Type': 'application/json' })
+        .end(JSON.stringify({ error: 'cuerpo_corto' }));
+    }
+    tabla = 'posts';
+    fila = {
+      country: pais,
+      type: TIPOS_POST.includes(datos.type) ? datos.type : 'info',
+      body: cuerpo,
+      estado: texto(datos.estado, 80) || null,
+      location_text: texto(datos.location_text, 160),
+      photo_url: null,
+      link_url: texto(datos.link_url, 400) || null,
+      author_name: autor,
+      contact_phone: texto(datos.contact_phone, 40) || null,
+      reactions: { apoyo: 0, corazon: 0, hecho: 0 },
+      user_id: uid,
+    };
+  } else if (datos.tipo === 'persona') {
+    const nombre = texto(datos.first_name, 90);
+    if (nombre.length < 2) {
+      return res.writeHead(400, { ...cors, 'Content-Type': 'application/json' })
+        .end(JSON.stringify({ error: 'nombre_corto' }));
+    }
+    const edad = Number.isInteger(datos.age) && datos.age > 0 && datos.age < 120
+      ? datos.age
+      : null;
+    tabla = 'persons';
+    fila = {
+      country: pais,
+      first_name: nombre,
+      last_name: texto(datos.last_name, 90),
+      cedula: texto(datos.cedula, 40) || null,
+      age: edad,
+      gender: texto(datos.gender, 30) || null,
+      estado: texto(datos.estado, 80) || null,
+      location_text: texto(datos.location_text, 200),
+      description: texto(datos.description, 1500),
+      photo_url: null,
+      status: ESTADOS_PERSONA.includes(datos.status)
+        ? datos.status
+        : 'por_localizar',
+      is_unidentified: false,
+      cause: 'desastre',
+      contact_name: texto(datos.contact_name, 90) || null,
+      contact_phone: texto(datos.contact_phone, 40) || null,
+      contact_email: texto(datos.contact_email, 120) || null,
+      user_id: uid,
+    };
+  } else {
+    return res.writeHead(400, { ...cors, 'Content-Type': 'application/json' })
+      .end(JSON.stringify({ error: 'tipo_invalido' }));
+  }
+
+  try {
+    const alta = await fetch(`${SUPABASE_URL}/rest/v1/${tabla}`, {
+      method: 'POST',
+      headers: {
+        apikey: SERVICE_ROLE,
+        Authorization: `Bearer ${SERVICE_ROLE}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=representation',
+      },
+      body: JSON.stringify(fila),
+    });
+
+    if (!alta.ok) {
+      const detalle = await alta.text().catch(() => '');
+      console.error(`[publicar] ${tabla} fallo:`, alta.status, detalle.slice(0, 300));
+      return res.writeHead(502, { ...cors, 'Content-Type': 'application/json' })
+        .end(JSON.stringify({ error: 'no_guardado' }));
+    }
+
+    const creada = (await alta.json())[0];
+    console.log(`[publicar] ${tabla} id=${creada?.id} uid=${uid}`);
+    return res.writeHead(200, { ...cors, 'Content-Type': 'application/json' })
+      .end(JSON.stringify({ id: creada?.id }));
+  } catch (err) {
+    console.error('[publicar] excepcion:', err);
+    return res.writeHead(500, { ...cors, 'Content-Type': 'application/json' })
+      .end(JSON.stringify({ error: 'interno' }));
+  }
+}
+
 // ── Servidor ─────────────────────────────────────────────────────────────────
 
 const servidor = http.createServer(async (req, res) => {
@@ -293,6 +449,9 @@ const servidor = http.createServer(async (req, res) => {
   }
 
   // nginx enruta /api/app-auth aqui como /auth.
+  if ((req.url || '').startsWith('/auth/publicar')) {
+    return manejarPublicar(req, res, cors, datos);
+  }
   if ((req.url || '').startsWith('/auth')) {
     return manejarLogin(req, res, cors, ip, datos);
   }

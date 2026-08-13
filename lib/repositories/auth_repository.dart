@@ -98,6 +98,52 @@ class AuthRepository {
 
   Future<void> salir() => _db.auth.signOut();
 
+  /// Publica un post de comunidad o una ficha de persona.
+  ///
+  /// Pasa por el servidor y no por Supabase directo: la web quito a proposito
+  /// la escritura publica con la llave anonima tras sufrir abuso, asi que la
+  /// app tampoco la tiene. El servidor decide que columnas se escriben — si el
+  /// cliente pudiera mandar el objeto entero, cualquiera colaria `verified` o
+  /// `moderation_status` y publicaria como si lo hubiera revisado alguien.
+  Future<String> publicar(Map<String, dynamic> datos) async {
+    final token = _db.auth.currentSession?.accessToken;
+    if (token == null) {
+      throw const AuthException('Necesitas iniciar sesion para publicar.');
+    }
+    if (Env.authUrl.isEmpty) {
+      throw const AuthException('Publicar no esta configurado en esta version.');
+    }
+
+    final res = await http
+        .post(
+          Uri.parse('${Env.authUrl}/publicar'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          body: jsonEncode(datos),
+        )
+        .timeout(const Duration(seconds: 30));
+
+    if (res.statusCode == 429) {
+      throw const AuthException(
+        'Has publicado varias veces seguidas. Espera unos minutos.',
+      );
+    }
+    if (res.statusCode != 200) {
+      final cuerpo = jsonDecode(res.body);
+      throw AuthException(switch (cuerpo is Map ? cuerpo['error'] : null) {
+        'cuerpo_corto' => 'Escribe un poco mas de detalle.',
+        'nombre_corto' => 'Falta el nombre de la persona.',
+        'sin_sesion' || 'token_invalido' =>
+          'Tu sesion caduco. Vuelve a entrar.',
+        _ => 'No pudimos publicar. Intentalo de nuevo.',
+      });
+    }
+
+    return '${(jsonDecode(res.body) as Map)['id']}';
+  }
+
   /// Ficha del usuario.
   ///
   /// Se pide al servidor y no a Supabase directo: `profiles` no tiene politica

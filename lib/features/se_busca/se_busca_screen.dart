@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/router/app_router.dart';
 import '../../core/state/pais_provider.dart';
@@ -10,6 +9,7 @@ import '../../core/util/freshness.dart';
 import '../../models/persona.dart';
 import '../../repositories/personas_repository.dart';
 import '../../widgets/boton_publicar.dart';
+import '../../widgets/publicar_sheet.dart';
 import '../../widgets/mt_card.dart';
 import '../../widgets/mt_search_bar.dart';
 import 'widgets/baraja_reconoces.dart';
@@ -200,31 +200,18 @@ class _SeBuscaScreenState extends ConsumerState<SeBuscaScreen> {
   }
 
   Future<void> _publicarPersona(BuildContext context) async {
-    final seguir = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Publicar una persona'),
-        content: const Text(
-          'Publicar una ficha se hace por ahora en el sitio web, que se '
-          'abrira fuera de la app.\n\n'
-          'Ten a mano el nombre completo, la ultima ubicacion conocida y una '
-          'foto reciente si la tienes.',
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancelar')),
-          FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Abrir el sitio')),
-        ],
-      ),
-    );
+    final publicada = await mostrarPublicarPersona(context);
+    if (!publicada || !context.mounted) return;
 
-    if (seguir == true) {
-      await launchUrl(Uri.parse('https://elmundotebusca.com/se-busca'),
-          mode: LaunchMode.externalApplication);
-    }
+    // La lista se recarga sola: si alguien publica y no ve su ficha aparecer,
+    // asume que no se guardo y vuelve a publicarla.
+    ref.read(personasProvider.notifier).recargar();
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(const SnackBar(
+        content: Text('Ficha publicada. Ya aparece en la lista.'),
+        behavior: SnackBarBehavior.floating,
+      ));
   }
 
   @override
