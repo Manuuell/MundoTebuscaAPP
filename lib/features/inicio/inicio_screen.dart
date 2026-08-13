@@ -13,6 +13,8 @@ import '../../widgets/pais_switcher.dart';
 import '../../widgets/mt_card.dart' show Press;
 import '../shell/home_shell.dart';
 import 'cifras_providers.dart';
+import '../../repositories/noticias_repository.dart';
+import 'noticias_carrusel.dart';
 
 /// Pantalla Inicio.
 ///
@@ -45,6 +47,7 @@ class InicioScreen extends ConsumerWidget {
         onRefresh: () async {
           ref.invalidate(cifrasPanelProvider);
           ref.invalidate(cifrasSismoProvider);
+          ref.invalidate(noticiasProvider);
         },
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
@@ -59,7 +62,7 @@ class InicioScreen extends ConsumerWidget {
             const SizedBox(height: 20),
             _FilaDeCifras(panel: panel),
             const SizedBox(height: 24),
-            const _NoticiasVerificadas(),
+            const NoticiasCarrusel(),
           ],
         ),
       ),
@@ -320,41 +323,6 @@ class _FilaDeCifras extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-}
-
-// ── 4. Noticias verificadas ──────────────────────────────────────────────────
-
-class _NoticiasVerificadas extends StatelessWidget {
-  const _NoticiasVerificadas();
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Noticias verificadas',
-            style: Theme.of(context).textTheme.titleLarge),
-        const SizedBox(height: 4),
-        const Text(
-          'Informacion de fuentes confiables',
-          style: TextStyle(color: AppColors.muted),
-        ),
-        const SizedBox(height: 12),
-        // TODO(fase-1): carrusel con GDELT/GNews. Al tocar una nota se abre
-        // fuera de la app, y antes hay que avisar de la salida — el mismo
-        // comportamiento de `ExternalLinkGuard` en la web.
-        const Card(
-          child: Padding(
-            padding: EdgeInsets.all(16),
-            child: Text(
-              'Pendiente de conectar con el feed de noticias.',
-              style: TextStyle(color: AppColors.muted),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

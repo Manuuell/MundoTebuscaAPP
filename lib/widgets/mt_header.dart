@@ -14,11 +14,11 @@ import 'mt_card.dart' show Press;
 /// que `google_fonts` acierte con el peso.
 ///
 /// La version de cabecera deja fuera los lemas "juntos salvamos vidas" y
-/// "voluntarios digitales" del lockup completo. A 34 px de alto esas dos
+/// "voluntarios digitales" del lockup completo. A este tamano esas dos
 /// lineas medirian dos o tres pixeles: no se leerian, solo ensuciarian. Van en
 /// `lockup_completo`, para donde hay sitio de sobra.
 class MarcaLockup extends StatelessWidget {
-  const MarcaLockup({super.key, this.alto = 34, this.completo = false});
+  const MarcaLockup({super.key, this.alto = 46, this.completo = false});
 
   final double alto;
   final bool completo;
@@ -51,14 +51,14 @@ class MTHeader extends ConsumerWidget implements PreferredSizeWidget {
   final List<Widget> acciones;
 
   @override
-  Size get preferredSize => const Size.fromHeight(64);
+  Size get preferredSize => const Size.fromHeight(74);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final usuario = ref.watch(usuarioProvider);
 
     return AppBar(
-      toolbarHeight: 64,
+      toolbarHeight: 74,
       titleSpacing: 16,
       title: const MarcaLockup(),
       actions: [
