@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup — Ajustes (app móvil)</title>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Signika:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 2rem 1rem;
+    background: #eef0f3;
+    display: flex;
+    justify-content: center;
+    font-family: 'Figtree', sans-serif;
+  }
+  .phone {
+    width: 320px;
+    border: 8px solid #1d1b40;
+    border-radius: 36px;
+    overflow: hidden;
+    background: #f8fafc;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 16px 6px;
+  }
+  .topbar .title {
+    font-family: 'Signika', sans-serif; font-weight: 600; font-size: 18px; color: #1d1b40;
+  }
+  .topbar i { font-size: 18px; color: #71717a; }
+
+  /* ── Perfil ────────────────────────────────────────────── */
+  .profile-card {
+    margin: 8px 16px 12px; padding: 16px; border-radius: 20px; border: 1px solid #e4e4e7;
+    background: #fff; display: flex; align-items: center; gap: 12px;
+  }
+  .avatar-lg {
+    width: 56px; height: 56px; border-radius: 999px; flex-shrink: 0; display: flex;
+    align-items: center; justify-content: center; font-size: 22px; font-weight: 700;
+    background: #fdf3ec; color: #9c552e;
+  }
+  .profile-body { min-width: 0; flex: 1; }
+  .profile-name { font-family: 'Signika', sans-serif; font-size: 15px; font-weight: 600; color: #1d1b40; }
+  .profile-handle { font-size: 11px; color: #71717a; margin-top: 2px; }
+  .profile-link {
+    margin-top: 6px; display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px;
+    font-weight: 700; color: #9c552e; background: #fdf3ec; padding: 4px 10px; border-radius: 999px;
+  }
+
+  /* ── Atajos: mis publicaciones / guardados ────────────────*/
+  .shortcuts { display: flex; gap: 8px; margin: 0 16px 16px; }
+  .shortcut-tile {
+    flex: 1; padding: 12px; border-radius: 16px; border: 1px solid #e4e4e7; background: #fff;
+    text-align: center;
+  }
+  .shortcut-tile i { font-size: 18px; color: #9c552e; }
+  .shortcut-tile .num { font-size: 17px; font-weight: 700; color: #1d1b40; margin-top: 4px; }
+  .shortcut-tile .lbl { font-size: 10px; color: #71717a; margin-top: 1px; }
+
+  /* ── Listas de ajustes ─────────────────────────────────────*/
+  .section-label {
+    margin: 0 20px 6px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em;
+    text-transform: uppercase; color: #a1a1aa;
+  }
+  .list-section {
+    margin: 0 16px 16px; border-radius: 16px; overflow: hidden; border: 1px solid #e4e4e7; background: #fff;
+  }
+  .list-row {
+    display: flex; align-items: center; gap: 10px; padding: 11px 14px; cursor: pointer;
+  }
+  .list-row + .list-row { border-top: 0.5px solid #e4e4e7; }
+  .row-icon {
+    width: 28px; height: 28px; border-radius: 9px; display: flex; align-items: center;
+    justify-content: center; flex-shrink: 0; font-size: 14px;
+  }
+  .row-body { flex: 1; min-width: 0; }
+  .row-label { font-size: 12.5px; font-weight: 600; color: #18181b; }
+  .row-sub { font-size: 9.5px; color: #a1a1aa; margin-top: 1px; }
+  .chev { font-size: 16px; color: #c4c4c8; flex-shrink: 0; }
+
+  /* Toggle interactivo (avisos por correo) */
+  .toggle { width: 38px; height: 22px; border-radius: 999px; background: #d4d4d8; position: relative; flex-shrink: 0; transition: background .15s; }
+  .toggle.on { background: #10b981; }
+  .toggle .knob { position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 999px; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.25); transition: left .15s; }
+  .toggle.on .knob { left: 18px; }
+
+  .logout-btn {
+    margin: 4px 16px 10px; padding: 11px; border-radius: 14px; border: 1px solid #1d1b40;
+    background: #fff; color: #1d1b40; font-size: 12.5px; font-weight: 700; text-align: center; cursor: pointer;
+  }
+  .delete-link {
+    display: block; margin: 0 16px 90px; text-align: center; font-size: 11px; font-weight: 700;
+    color: #be123c; cursor: pointer;
+  }
+  .delete-link .sub { display: block; font-size: 9.5px; font-weight: 500; color: #a1a1aa; margin-top: 2px; }
+
+  /* Tab bar flotante estilo iOS 26 ("Liquid Glass") — igual que inicio.html/se-busca.html,
+     investigacion-tecnica/09-diseno-ios.md §1. */
+  .floating-nav {
+    position: absolute; left: 16px; right: 16px; bottom: 14px; height: 60px;
+    border-radius: 28px; overflow: hidden;
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    background: rgba(255,255,255,0.72); border: 1px solid rgba(255,255,255,0.6);
+    box-shadow: 0 16px 32px -12px rgba(16,24,40,.22), 0 2px 4px rgba(16,24,40,.06);
+    display: flex; align-items: center; justify-content: space-around; z-index: 20;
+  }
+  .nav-item {
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    padding: 6px 6px; border-radius: 14px; transition: transform .12s ease-out;
+  }
+  .nav-item:active { transform: scale(0.96); }
+  .nav-item i { font-size: 20px; color: #71717a; }
+  .nav-item span { font-size: 9.5px; color: #71717a; white-space: nowrap; }
+  .nav-item.active { background: rgba(253,243,236,0.9); }
+  .nav-item.active i, .nav-item.active span { color: #9c552e; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="phone">
+
+  <div class="topbar">
+    <div class="title">Ajustes</div>
+    <i class="ti ti-bell" aria-hidden="true"></i>
+  </div>
+
+  <!-- Perfil (equivalente a /perfil) -->
+  <div class="profile-card">
+    <div class="avatar-lg">MT</div>
+    <div class="profile-body">
+      <div class="profile-name">María Torres</div>
+      <div class="profile-handle">@mariatorres · La Guaira, Venezuela</div>
+      <div class="profile-link"><i class="ti ti-user-circle" aria-hidden="true" style="font-size:12px;"></i> Ver perfil público</div>
+    </div>
+  </div>
+
+  <!-- Atajos: mis publicaciones / guardados -->
+  <div class="shortcuts">
+    <div class="shortcut-tile">
+      <i class="ti ti-file-text" aria-hidden="true"></i>
+      <div class="num">12</div>
+      <div class="lbl">Mis publicaciones</div>
+    </div>
+    <div class="shortcut-tile">
+      <i class="ti ti-bookmark" aria-hidden="true"></i>
+      <div class="num">8</div>
+      <div class="lbl">Guardados</div>
+    </div>
+  </div>
+
+  <!-- Cuenta (equivalente a /configuracion) -->
+  <div class="section-label">Cuenta</div>
+  <div class="list-section">
+    <div class="list-row">
+      <div class="row-icon" style="background:#f0f9ff;color:#0369a1;"><i class="ti ti-lock" aria-hidden="true"></i></div>
+      <div class="row-body">
+        <div class="row-label">Cambiar contraseña</div>
+      </div>
+      <i class="ti ti-chevron-right chev" aria-hidden="true"></i>
+    </div>
+    <div class="list-row">
+      <div class="row-icon" style="background:#f5f3ff;color:#6d28d9;"><i class="ti ti-mail" aria-hidden="true"></i></div>
+      <div class="row-body">
+        <div class="row-label">Correo de recuperación</div>
+        <div class="row-sub">No configurado</div>
+      </div>
+      <i class="ti ti-chevron-right chev" aria-hidden="true"></i>
+    </div>
+    <div class="list-row" id="rowAvisos" onclick="toggleAvisos()">
+      <div class="row-icon" style="background:#ecfdf5;color:#047857;"><i class="ti ti-bell-ringing" aria-hidden="true"></i></div>
+      <div class="row-body">
+        <div class="row-label">Avisos por correo</div>
+        <div class="row-sub">Cambios en tus publicaciones</div>
+      </div>
+      <div class="toggle on" id="toggleAvisos"><div class="knob"></div></div>
+    </div>
+  </div>
+
+  <button class="logout-btn">Cerrar sesión</button>
+  <div class="delete-link">
+    Eliminar cuenta
+    <span class="sub">No borra tus publicaciones, solo las desvincula</span>
+  </div>
+
+  <div class="floating-nav">
+    <div class="nav-item"><i class="ti ti-home" aria-hidden="true"></i><span>Inicio</span></div>
+    <div class="nav-item"><i class="ti ti-search" aria-hidden="true"></i><span>Se busca</span></div>
+    <div class="nav-item"><i class="ti ti-users" aria-hidden="true"></i><span>Comunidad</span></div>
+    <div class="nav-item"><i class="ti ti-map" aria-hidden="true"></i><span>Mapa</span></div>
+    <div class="nav-item active"><i class="ti ti-settings" aria-hidden="true"></i><span>Ajustes</span></div>
+  </div>
+
+</div>
+
+<script>
+  function toggleAvisos() {
+    document.getElementById('toggleAvisos').classList.toggle('on');
+  }
+</script>
+
+</body>
+</html>

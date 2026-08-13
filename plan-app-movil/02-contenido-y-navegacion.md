@@ -10,29 +10,43 @@
 | `/mantenimiento` | No es contenido, es un estado global de la app cuando el backend está caído. En Flutter es una pantalla de estado a nivel de app, no un ítem de navegación |
 | `/cuenta/confirmar`, `/cuenta/restablecer` | Son destinos de un enlace de correo (recuperar contraseña), no secciones que alguien visite por su cuenta. El equivalente móvil es una pantalla de "restablecer contraseña" propia, alcanzada por Universal Link/App Link desde el correo — se construye, pero no va en el menú |
 
-## Sí, pero en fases posteriores (no en el MVP de lectura/escritura)
+## Decisión del equipo (2026-08-13): Ajustes reemplaza a SOS en la barra principal
 
-`/perfil`, `/configuracion`, `/perfil/publico/[username]` — cuentas y ajustes.
-Ubicados en la Fase 3 (Cuentas) del [roadmap](03-roadmap.md); no son parte de
-"salvar vidas ya" y no bloquean nada si se posponen.
+El equipo decidió que la app **no** hereda 1:1 los 5 tabs de `MobileNav.tsx`
+— cambia SOS por **Ajustes** (perfil y cuenta) como quinto tab primario.
+Justificación de producto: cuenta/perfil es algo que se consulta con más
+frecuencia que emergencias, y Emergencias sigue accesible a un toque extra
+desde "Más", no desaparece.
 
-## Todo lo demás: sí, heredando la jerarquía que la propia web ya definió para móvil
+- **Emergencias/SOS se muda a la hoja "Más"**, junto con Ayuda y Mascotas —
+  ver tabla actualizada abajo.
+- **Ajustes deja de ser "Fase 3 pospuesta"** y pasa a ser navegación
+  primaria desde el día uno: `/perfil`, `/configuracion`,
+  `/perfil/publico/[username]` (antes descritos aquí como pospuestos a
+  Fase 3 del [roadmap](03-roadmap.md) — la construcción real de login/cuenta
+  puede seguir llegando por fases, pero el **tab** ya existe desde el MVP de
+  navegación, no hay que esperar a Fase 3 para que aparezca en la barra).
+
+## Todo lo demás: hereda la jerarquía de la web, con el cambio de arriba
 
 Hallazgo clave: `MobileNav.tsx` (la barra inferior que ya usa la PWA en
-pantallas chicas, en el repo web) **ya resolvió esta jerarquía** — no hay que
-inventarla de nuevo:
+pantallas chicas, en el repo web) **ya resolvió la jerarquía base** — no hay
+que inventarla de nuevo, solo aplicarle el cambio ya decidido:
 
-- **5 tabs primarios** (`MobileNav.tsx:33-39`): Inicio (`/`), Se busca
-  (`/se-busca`), Comunidad (`/comunidad`), Mapa (`/mapa`), SOS (`/emergencias`).
-- **Hoja "Más"** (`MobileNav.tsx:41-44`): Ayuda y hospitales, Mascotas.
+- **5 tabs primarios** (base: `MobileNav.tsx:33-39`, con el swap ya
+  decidido): Inicio (`/`), Se busca (`/se-busca`), Comunidad (`/comunidad`),
+  Mapa (`/mapa`), **Ajustes** (`/perfil` + `/configuracion` — antes SOS en la
+  web).
+- **Hoja "Más"** (base: `MobileNav.tsx:41-44`, con Emergencias agregada):
+  Ayuda y hospitales, Mascotas, **Emergencias/SOS** (`/emergencias`).
 - **Comunidad agrupa** voluntarios, caravanas y denuncias
   (`MobileNav.tsx:30`, `COMMUNITY_PATHS`) — no son tabs propios, son
   subsecciones dentro de Comunidad.
 - **Ayuda agrupa** hospitales (`MobileNav.tsx:31`, `AYUDA_PATHS`).
 
-Recomendación: Flutter **hereda esta misma jerarquía tal cual** (mismos 5 tabs
-+ hoja "Más"), en vez de diseñar una nueva. Beneficio directo: quien ya usa la
-PWA no tiene que reaprender nada al pasar a la app nativa.
+Recomendación: Flutter hereda el resto de la jerarquía tal cual (mismo
+agrupamiento de Comunidad/Ayuda, misma hoja "Más"), solo con el tab 5
+cambiado. Quien ya usa la PWA reconoce casi todo salvo ese swap deliberado.
 
 ## Pantalla Inicio: contenido exacto (de `src/app/page.tsx:12-35` en el repo web)
 
