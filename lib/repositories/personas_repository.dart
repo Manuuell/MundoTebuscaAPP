@@ -25,8 +25,16 @@ class PersonasRepository {
     bool soloMenores = false,
     String? busqueda,
     int limite = 50,
+    bool? soloNoIdentificadas,
   }) async {
     var q = _db.from(_tabla).select().eq('country', paisCodigo);
+
+    // `is_unidentified` es lo que separa "Se busca" (alguien con nombre a
+    // quien se busca) de "La reconoces?" (alguien encontrado sin identificar).
+    // Misma tabla, dos pantallas.
+    if (soloNoIdentificadas != null) {
+      q = q.eq('is_unidentified', soloNoIdentificadas);
+    }
 
     // `status` es el estado de búsqueda; `estado` en esta tabla es la región
     // geográfica — no confundir (ver 06-correcciones-y-reparto.md §Parte 1).

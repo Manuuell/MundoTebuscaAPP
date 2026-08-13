@@ -8,8 +8,13 @@ import '../../core/theme/app_colors.dart';
 import '../../core/util/freshness.dart';
 import '../../models/persona.dart';
 import '../../repositories/personas_repository.dart';
+import '../../widgets/asistente_sheet.dart';
+import '../../widgets/mt_card.dart';
+import 'widgets/baraja_reconoces.dart';
+import 'widgets/persona_tile.dart';
 
-/// Filtros activos de la pantalla.
+// ── Estado ───────────────────────────────────────────────────────────────────
+
 class FiltroPersonas {
   const FiltroPersonas({this.estado, this.soloMenores = false, this.busqueda});
 
@@ -41,8 +46,24 @@ final personasProvider = FutureProvider<Fresh<List<Persona>>>((ref) async {
         estado: f.estado,
         soloMenores: f.soloMenores,
         busqueda: f.busqueda,
+        // La lista muestra a quien se busca; las fichas sin identificar tienen
+        // su propia vista.
+        soloNoIdentificadas: false,
       );
 });
+
+/// Fichas de personas encontradas sin identificar (`is_unidentified = true`).
+final noIdentificadasProvider =
+    FutureProvider<Fresh<List<Persona>>>((ref) async {
+  final pais = ref.watch(paisProvider);
+  return ref.watch(personasRepositoryProvider).listar(
+        paisCodigo: pais.codigo,
+        soloNoIdentificadas: true,
+        limite: 60,
+      );
+});
+
+// ── Pantalla ─────────────────────────────────────────────────────────────────
 
 class SeBuscaScreen extends ConsumerStatefulWidget {
   const SeBuscaScreen({
@@ -59,12 +80,12 @@ class SeBuscaScreen extends ConsumerStatefulWidget {
 }
 
 class _SeBuscaScreenState extends ConsumerState<SeBuscaScreen> {
+  final _buscador = TextEditingController();
+  bool _baraja = false;
+
   @override
   void initState() {
     super.initState();
-    // El filtro llega por la URL (chip del Inicio o enlace compartido desde la
-    // web). Se aplica despues del primer frame para no escribir en un provider
-    // durante el build.
     if (widget.estadoInicial != null || widget.soloMenores) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ref.read(filtroPersonasProvider.notifier).state = FiltroPersonas(
@@ -76,154 +97,388 @@ class _SeBuscaScreenState extends ConsumerState<SeBuscaScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final personas = ref.watch(personasProvider);
-    final filtro = ref.watch(filtroPersonasProvider);
+  void dispose() {
+    _buscador.dispose();
+    super.dispose();
+  }
 
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Se busca')),
+      backgroundColor: AppColors.bgBase,
+      appBar: AppBar(
+        centerTitle: true,
+        title: const Text('Se busca',
+            style: TextStyle(fontWeight: FontWeight.w800)),
+        actions: const [BotonAsistente()],
+      ),
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
             child: TextField(
-              decoration: const InputDecoration(
+              controller: _buscador,
+              textInputAction: TextInputAction.search,
+              decoration: InputDecoration(
                 hintText: 'Buscar nombre, documento o ubicacion',
-                prefixIcon: Icon(Icons.search_rounded),
-                border: OutlineInputBorder(),
+                prefixIcon:
+                    const Icon(Icons.search_rounded, color: AppColors.muted),
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(999),
+                  borderSide: const BorderSide(color: AppColors.border),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(999),
+                  borderSide: const BorderSide(color: AppColors.border),
+                ),
+                suffixIcon: _buscador.text.isEmpty
+                    ? null
+                    : IconButton(
+                        icon: const Icon(Icons.close_rounded, size: 20),
+                        onPressed: () {
+                          _buscador.clear();
+                          ref
+                              .read(filtroPersonasProvider.notifier)
+                              .update((f) => f.copyWith(busqueda: ''));
+                          setState(() {});
+                        },
+                      ),
               ),
+              onChanged: (_) => setState(() {}),
               onSubmitted: (v) => ref
                   .read(filtroPersonasProvider.notifier)
                   .update((f) => f.copyWith(busqueda: v)),
             ),
           ),
-          SizedBox(
-            height: 44,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              children: [
-                FilterChip(
-                  label: const Text('Todos'),
-                  selected: filtro.estado == null && !filtro.soloMenores,
-                  onSelected: (_) => ref
-                      .read(filtroPersonasProvider.notifier)
-                      .state = const FiltroPersonas(),
-                ),
-                const SizedBox(width: 8),
-                for (final e in EstadoPersona.values) ...[
-                  FilterChip(
-                    label: Text(e.etiqueta),
-                    selected: filtro.estado == e,
-                    onSelected: (sel) => ref
-                        .read(filtroPersonasProvider.notifier)
-                        .state = FiltroPersonas(estado: sel ? e : null),
-                  ),
-                  const SizedBox(width: 8),
-                ],
-              ],
-            ),
+          _Segmentado(
+            enBaraja: _baraja,
+            alCambiar: (v) => setState(() => _baraja = v),
           ),
-          Expanded(
-            child: personas.when(
-              loading: () =>
-                  const Center(child: CircularProgressIndicator()),
-              error: (e, _) => _Error(onReintentar: () {
-                ref.invalidate(personasProvider);
-              }),
-              data: (fresh) {
-                if (fresh.data.isEmpty) {
-                  return const Center(
-                    child: Text('No hay personas con este filtro.'),
-                  );
-                }
-                return Column(
-                  children: [
-                    StaleDataBanner(
-                      fetchedAt: fresh.fetchedAt,
-                      onRefresh: () => ref.invalidate(personasProvider),
-                    ),
-                    Expanded(
-                      child: ListView.separated(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: fresh.data.length,
-                        separatorBuilder: (_, _) =>
-                            const SizedBox(height: 10),
-                        itemBuilder: (_, i) =>
-                            _PersonaCard(persona: fresh.data[i]),
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ),
+          const SizedBox(height: 10),
+          Expanded(child: _baraja ? const _VistaBaraja() : const _VistaLista()),
         ],
       ),
     );
   }
 }
 
-class _PersonaCard extends StatelessWidget {
-  const _PersonaCard({required this.persona});
+/// Conmutador Lista / ¿La reconoces?
+class _Segmentado extends StatelessWidget {
+  const _Segmentado({required this.enBaraja, required this.alCambiar});
 
-  final Persona persona;
-
-  Color get _color => switch (persona.estado) {
-        EstadoPersona.porLocalizar => AppColors.danger500,
-        EstadoPersona.hospitalizado => AppColors.info500,
-        EstadoPersona.localizado => AppColors.success500,
-        EstadoPersona.fallecido => AppColors.navy700,
-      };
+  final bool enBaraja;
+  final ValueChanged<bool> alCambiar;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: ListTile(
-        onTap: () => context.push('${Rutas.persona}/${persona.id}'),
-        leading: CircleAvatar(
-          backgroundColor: _color.withValues(alpha: 0.15),
-          foregroundColor: _color,
-          backgroundImage: persona.fotoUrl == null
-              ? null
-              : NetworkImage(persona.fotoUrl!),
-          child: persona.fotoUrl == null
-              ? const Icon(Icons.person_outline)
-              : null,
-        ),
-        title: Text(persona.nombre),
-        subtitle: Text(
-          [
-            persona.estado.etiqueta,
-            if (persona.ubicacion != null) persona.ubicacion!,
-          ].join(' · '),
-        ),
-        trailing: persona.esMenor
-            ? const Chip(
-                label: Text('Menor'),
-                visualDensity: VisualDensity.compact,
-              )
-            : null,
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.all(5),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFEFF2),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        children: [
+          _Opcion(
+              texto: 'Lista',
+              activa: !enBaraja,
+              alTocar: () => alCambiar(false)),
+          _Opcion(
+              texto: '¿La reconoces?',
+              activa: enBaraja,
+              alTocar: () => alCambiar(true)),
+        ],
       ),
     );
   }
 }
 
-class _Error extends StatelessWidget {
-  const _Error({required this.onReintentar});
+class _Opcion extends StatelessWidget {
+  const _Opcion(
+      {required this.texto, required this.activa, required this.alTocar});
 
-  final VoidCallback onReintentar;
+  final String texto;
+  final bool activa;
+  final VoidCallback alTocar;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Press(
+        onTap: alTocar,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(vertical: 11),
+          decoration: BoxDecoration(
+            color: activa ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(999),
+            boxShadow: activa
+                ? [
+                    BoxShadow(
+                      color: AppColors.navy700.withValues(alpha: 0.08),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Text(
+            texto,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: activa ? AppColors.brand700 : AppColors.muted,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Vista lista ──────────────────────────────────────────────────────────────
+
+class _VistaLista extends ConsumerWidget {
+  const _VistaLista();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final personas = ref.watch(personasProvider);
+    final filtro = ref.watch(filtroPersonasProvider);
+
+    return Column(
+      children: [
+        SizedBox(
+          height: 46,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            children: [
+              _Chip(
+                texto: 'Todos',
+                color: AppColors.navy700,
+                activo: filtro.estado == null && !filtro.soloMenores,
+                alTocar: () => ref
+                    .read(filtroPersonasProvider.notifier)
+                    .state = const FiltroPersonas(),
+              ),
+              for (final e in EstadoPersona.values)
+                _Chip(
+                  texto: e.etiqueta,
+                  color: colorEstado(e),
+                  activo: filtro.estado == e,
+                  alTocar: () => ref
+                      .read(filtroPersonasProvider.notifier)
+                      .state = FiltroPersonas(
+                    estado: filtro.estado == e ? null : e,
+                  ),
+                ),
+              _Chip(
+                texto: 'Menores',
+                color: AppColors.warning500,
+                activo: filtro.soloMenores,
+                alTocar: () => ref
+                    .read(filtroPersonasProvider.notifier)
+                    .state = FiltroPersonas(soloMenores: !filtro.soloMenores),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: personas.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (_, _) => _Mensaje(
+              icono: Icons.cloud_off_rounded,
+              titulo: 'No pudimos cargar la lista',
+              detalle: 'Revisa tu conexion e intentalo de nuevo.',
+              alReintentar: () => ref.invalidate(personasProvider),
+            ),
+            data: (fresh) {
+              if (fresh.data.isEmpty) {
+                return _Mensaje(
+                  icono: Icons.search_off_rounded,
+                  titulo: 'Sin resultados',
+                  detalle: 'No hay personas que coincidan con este filtro.',
+                  alReintentar: () => ref.invalidate(personasProvider),
+                );
+              }
+              return Column(
+                children: [
+                  StaleDataBanner(
+                    fetchedAt: fresh.fetchedAt,
+                    onRefresh: () => ref.invalidate(personasProvider),
+                  ),
+                  Expanded(
+                    child: RefreshIndicator(
+                      onRefresh: () async => ref.invalidate(personasProvider),
+                      child: ListView.separated(
+                        padding: EdgeInsets.fromLTRB(
+                          16,
+                          10,
+                          16,
+                          MediaQuery.paddingOf(context).bottom + 16,
+                        ),
+                        itemCount: fresh.data.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 10),
+                        itemBuilder: (context, i) => MTEntrada(
+                          indice: i,
+                          child: PersonaTile(
+                            persona: fresh.data[i],
+                            // go_router, no Navigator: con pushNamed la ruta
+                            // no existe y la ficha no abre.
+                            onTap: () => context.push(
+                                '${Rutas.persona}/${fresh.data[i].id}'),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _Chip extends StatelessWidget {
+  const _Chip({
+    required this.texto,
+    required this.color,
+    required this.activo,
+    required this.alTocar,
+  });
+
+  final String texto;
+  final Color color;
+  final bool activo;
+  final VoidCallback alTocar;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Press(
+        onTap: alTocar,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+          decoration: BoxDecoration(
+            color: activo ? color : Colors.white,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+                color: activo ? color : color.withValues(alpha: 0.35)),
+          ),
+          child: Text(
+            texto,
+            style: TextStyle(
+              fontSize: 14.5,
+              fontWeight: FontWeight.w700,
+              color: activo ? Colors.white : color,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Vista baraja ─────────────────────────────────────────────────────────────
+
+class _VistaBaraja extends ConsumerWidget {
+  const _VistaBaraja();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final fichas = ref.watch(noIdentificadasProvider);
+
+    return fichas.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (_, _) => _Mensaje(
+        icono: Icons.cloud_off_rounded,
+        titulo: 'No pudimos cargar las fichas',
+        detalle: 'Revisa tu conexion e intentalo de nuevo.',
+        alReintentar: () => ref.invalidate(noIdentificadasProvider),
+      ),
+      data: (fresh) => Padding(
+        padding: EdgeInsets.fromLTRB(
+          16,
+          4,
+          16,
+          MediaQuery.paddingOf(context).bottom + 8,
+        ),
+        child: BarajaReconoces(
+          personas: fresh.data,
+          alReiniciar: () => ref.invalidate(noIdentificadasProvider),
+          alReconocer: (p) {
+            // Reportar el reconocimiento es una escritura, y la escritura
+            // pasa por la Edge Function que todavia no existe. Se avisa en vez
+            // de fingir que se guardo: alguien que cree haber reportado a un
+            // familiar y no lo hizo es el peor resultado posible aqui.
+            ScaffoldMessenger.of(context)
+              ..clearSnackBars()
+              ..showSnackBar(SnackBar(
+                content: Text(
+                  'Reportar reconocimientos estara disponible cuando se '
+                  'habiliten las cuentas.',
+                ),
+                behavior: SnackBarBehavior.floating,
+                margin: EdgeInsets.only(
+                  left: 16,
+                  right: 16,
+                  bottom: MediaQuery.paddingOf(context).bottom + 8,
+                ),
+              ));
+          },
+        ),
+      ),
+    );
+  }
+}
+
+// ── Compartido ───────────────────────────────────────────────────────────────
+
+class _Mensaje extends StatelessWidget {
+  const _Mensaje({
+    required this.icono,
+    required this.titulo,
+    required this.detalle,
+    required this.alReintentar,
+  });
+
+  final IconData icono;
+  final String titulo;
+  final String detalle;
+  final VoidCallback alReintentar;
 
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text('No pudimos cargar la lista.'),
-          const SizedBox(height: 8),
-          FilledButton(onPressed: onReintentar, child: const Text('Reintentar')),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icono, size: 48, color: AppColors.border),
+            const SizedBox(height: 14),
+            Text(titulo, style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 6),
+            Text(detalle,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: AppColors.muted)),
+            const SizedBox(height: 18),
+            OutlinedButton(
+                onPressed: alReintentar, child: const Text('Reintentar')),
+          ],
+        ),
       ),
     );
   }
